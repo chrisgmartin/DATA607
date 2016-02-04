@@ -1,0 +1,58 @@
+---
+title: "Subsetting the Automobiles Data Set"
+output: html_document
+---
+
+***
+
+## Loading the Data Set
+
+Let's start by loading the data set. This set comes from UCI's archive labled (simply enough) 'Automobile Data Set'. I started by uploading the set to github as a CSV file and grabbing the raw link, using R to create a data frame. Since the data didn't have a header (column titles), they had to be 'manually' entered in seperately. Finally, I used the *head* function to see if it all worked as expected.
+
+```{r}
+library(RCurl)
+x <- 'https://raw.githubusercontent.com/chrisgmartin/DATA607/master/imports-85.csv'
+y <- read.csv(url(x), header = FALSE)
+colnames(y) <- c("symboling","normalized-losses","make","fuel-type","aspiration","num-of-doors","body-style","drive-wheels","engine-location","wheel-base","length","width","height","curb-weight","engine-type","num-of-cylinders","engine-size","fuel-system","bore","stroke","compression-ratio","horsepower","peak-rpm","city-mpg","highway-mpg","price")
+head(y)
+```
+
+***
+
+## Subsetting the Data Set
+
+Next we'll pickout the columns that we'll want to analyse (aka randomly choose some columns) and create a subset. The columns that pertain to my analysis were *make* (because that's a primary detail of the cars), *fuel-type* (because cars needed fuel back then), *num-of-doors* (this is likely a simple items we can use to subset the data by), *length* (totally random), *width* (because we already selected length), *num-of-cylinders* (similar to the doors), *horsepower* (because horses are cool), and *price* (same reason as make).
+
+```{r}
+y2 <- y[, c("make","fuel-type","num-of-doors","length","width","num-of-cylinders","horsepower","price")]
+head(y2)
+```
+
+Now that we have the new data frame *y2* set-up, we can subset. I want to see the average length and width of two door, diesel engine cars.
+
+```{r}
+#averages before subset
+mean(y2$length)
+mean(y2$width)
+
+#subset type 1
+y3 <- y2[y2$'num-of-doors' == 'two' & y2$'fuel-type' == 'diesel',]
+
+#subset type 2, not saving as a new data frame to show results of the subset
+subset(y2, `num-of-doors` == 'two' & `fuel-type` == 'diesel')
+
+#averages after subset
+mean(y3$length)
+mean(y3$width)
+```
+
+As you can see, the average length and width of the cars with diesel fuel and two doors is eerily similar to the original data set. Could be that all cars fall in this range regardless of door number or fuel type. There's one way to find out:
+
+```{r}
+boxplot(y2$length)
+boxplot(y2$width)
+```
+
+***
+
+### Answer: More or less
