@@ -1,0 +1,76 @@
+---
+title: "Combining Data for Rates of TB"
+output: html_document
+---
+
+***
+
+## Loading the Data Set
+
+In a seperate SQL file, we were tasked with combining data from two .csv files: *tb* and *population*. After combining the data sets, we are now tasked with loading the resulting .csv file into R for analysis. Let's do that now. But first, I need to check the we have the same working directory:
+
+```{r}
+#I'm having issues with Knitting the local file, so instead I'll use the GitHub link and comment out the original code
+#setwd(C:/Users/Public)
+```
+
+On to the importing:
+
+```{r}
+#Original code
+#tb_population <- as.data.frame(read.csv("tb_population.csv", header = FALSE, col.names=c("country","year","rate")))
+
+#GitHub code
+library(RCurl)
+x <- 'https://raw.githubusercontent.com/chrisgmartin/DATA607/master/tb_population.csv'
+tb_population <- read.csv(url(x), header = FALSE, col.names=c("Country","Year","Rate"))
+head(tb_population)
+```
+
+There is one thing I don't like, visually. I'd rather see the rate in a more useful form. Since rate is actually the number of tb cases (of both the male and female sex) divided by the total country population, I'll multiply it by 100 to get it's real percentage figure.
+
+```{r}
+tb_population$Rate <- tb_population$Rate * 100
+head(tb_population)
+```
+
+
+
+### Faking an Analysis
+
+As a consideration, how can we use the data now that it's in R and what type of reporting would be useful? Let's try an example or two:
+
+```{r}
+require(ggplot2)
+
+#this chart is very cool looking, but maybe not so useful in practice with so many countries:
+ggplot(tb_population, aes(x = Year, y=Rate, fill = Country)) + geom_area()
+
+#Same with this chart
+ggplot(tb_population, aes(x=Year, y=Rate, colour = Country)) + geom_line()
+```
+
+It's evident we'll need to subset so we can look atr a select few countries: The United States and Mexico (to represent North America), France and Germany and the United Kingdom (to represent Western Europe) and Sri Lanka and Ghana and Malaysia and Kenya and Congo and Haiti (to represent a random selection). Let's create a new data frame called *tb_pop2* and plot that in a cool looking chart.
+
+```{r}
+tb_pop2 <- tb_population[
+          tb_population$Country == 'United States of America' | 
+          tb_population$Country == 'Mexico' | 
+          tb_population$Country == 'France' | 
+          tb_population$Country == 'Germany' | 
+          tb_population$Country == 'United Kingdom' | 
+          tb_population$Country == 'Sri Lanka' | 
+          tb_population$Country == 'Ghana' | 
+          tb_population$Country == 'Malaysia' | 
+          tb_population$Country == 'Kenya' | 
+          tb_population$Country == 'Congo' | 
+          tb_population$Country == 'Haiti'
+              ,]
+
+ggplot(tb_pop2, aes(x = Year, y=Rate, fill = Country)) + geom_area()
+
+ggplot(tb_pop2, aes(x=Year, y=Rate, colour = Country)) + geom_line()
+```
+
+
+### Now those are cool charts
