@@ -18,7 +18,7 @@ On to the importing:
 
 ```{r}
 #Original code
-#tb_population <- as.data.frame(read.csv("tb_population.csv", header = FALSE, col.names=c("country","year","rate")))
+#tb_population <- as.data.frame(read.csv("tb_population.csv", header = FALSE, col.names=c("Country","Year","Rate")))
 
 #GitHub code
 library(RCurl)
