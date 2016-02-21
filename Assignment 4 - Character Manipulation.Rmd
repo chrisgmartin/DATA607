@@ -1,0 +1,84 @@
+---
+title: "DATA607 - Regular Expressions"
+output: html_document
+---
+
+3. Using a list of Simpson names:
+
+
+```{r}
+library(stringr)
+
+names <- c('Moe Szyslak', 'Burns, C. Montgomery', 'Rev. Timothy Lovejoy', 'Ned Flanders', 'Simpson, Homer', 'Dr. Julius Hibbert')
+names
+```
+
+a. *Use the tools of this chapter to rearrange the vector so that all the elements conform to the standard first_name last_name.* We want to organize the names into a *first_name* *last_name* order. This is difficult since there are some names with the *last_name* first and some with titles or two first names (or one first name and one middle name). To get them in the right order, we need to seperate out the last names from those with last name first, trim the extra space, reverse the order, and re-merge them. Then we'll have our order (ducks in a line).
+
+```{r}
+names <- str_split(names, ",")
+names <- sapply(names, str_trim)
+names <- sapply(names, rev)
+```
+
+Ducks. In. A. Line. Now we need to merge them together. This is tricky, since the function you'd expect to work, doesn't work very well.
+
+```{r}
+str_c(names, sep = " ")
+```
+
+For that we can use a function. This function will remove the string from the first vector in the table, merge them with a space, and move to the next string. F
+
+```{r}
+for (i in 1:length(names)) {
+  names[i] <- paste(unlist(names[i]), collapse=" ")
+}
+
+unlist(names)
+```
+
+
+
+3b. *Construct a logical vector indicating whether a character has a title (i.e., Rev. and Dr.).* Simply enough, we'll just want to identify if the name has a period and more than two letters (since C. Montgomery Burns has a period for abbreviated name, and not a title). This funtion is the *str_detect* to find any alphabetical letter, at least two letters long, with a literal period (not functional period would would be anything).
+
+```{r}
+str_detect(names, "[[:alpha:]]{2,}\\.")
+```
+
+
+3c. *Construct a logical vector indicating whether a character has a second name.*
+
+```{r}
+abbrnames <- str_extract(names, "[[:alpha:]]+\\.")
+str_length(abbrnames) < 3
+#side-note, there is an easier way to do this. I tried to detect/extract all strings that included an alphabetical character and a period with 2 letters but failed doing so. This longer version is much too inefficient.
+```
+
+
+7. *Consider the string <title>++BREAKING NEWS+++</title>. We would like to extract the first HTML tag. To do so we write the expression <.+>. Explain why this fails and correct the expression.* The reason this expression fails to return the first tag is because the extraction is greedy, it wants to pull the longest string it can so it will pull in the second tag (which has one character longer than the first). The way to fix this would be to use the expression that finds only the symbols we want (all symbols except for the forward slash).
+
+
+```{r}
+title <- c("<title>++BREAKING NEWS+++</title>")
+str_extract(title, "<[[:alnum:]]+>")
+```
+
+
+
+8. **Consider the string "(5-3)^2=5^2-2*5*3+3^2" conforms to the binomial theorem. We would like to extract the formula in the string. To do so we write the regular expression "[^0-9=+*()]+." Explain why this fails and correct the expression.** The reason this expression doesn't work is because it does not correctly identify the symbols for extraction. Instead, it interpretes the carrot *^* as a symbol to match everything except for those in specified. The way to correct this is to simply specify that the characters are characters, not special functions.
+
+```{r}
+binomialstr <- c("(5-3)^2=5^2-2*5*3+3^2")
+str_extract(binomialstr, "[\\^\\-0-9=+*()]+")
+```
+
+
+9. *The following code hides a secret message.* See answer below:
+
+
+```{r}
+code <- c("clcopCow1zmstc0d87wnkig7OvdicpNuggvhryn92Gjuwczi8hqrfpRxs5Aj5dwpn0TanwoUwisdij7Lj8kpf03AT5Idr3coc0bt7yczjatOaootj55t3Nj3ne6c4Sfek.r1w1YwwojigOd6vrfUrbz2.2bkAnbhzgv4R9i05zEcrop.wAgnb.SqoU65fPa1otfb7wEm24k6t3sR9zqe5fy89n6Nd5t9kc4fE905gmc4Rgxo5nhDk!gr")
+newcode <- str_replace_all(code, "[[:lower:]]?[[:digit:]]?", "")
+newcode <- str_replace_all(newcode, "\\.", " ")
+newcode
+```
