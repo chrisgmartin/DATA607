@@ -89,10 +89,7 @@ OppRatings <- data.frame(c(1:64),ChessTable$PreRating[Opponents$Opp1[1:64]],
                          ChessTable$PreRating[Opponents$Opp6[1:64]],
                          ChessTable$PreRating[Opponents$Opp7[1:64]])
 colnames(OppRatings) <- c("Player","Opp1R","Opp2R","Opp3R","Opp4R","Opp5R","Opp6R","Opp7R")
-for (i in 1:64) {
-  OppRatings$GamesPlayed[i] <- 7 - sum(is.na(OppRatings[i,2:8]))
-  OppRatings$Average[i] <- round(sum(OppRatings[i,2:8]/OppRatings$GamesPlayed[i], na.rm = TRUE),0)
-}
+OppRatings$Average <- round(rowMeans(OppRatings[2:8],na.rm=TRUE), digits=0)
 kable(head(OppRatings))
 ```
 
