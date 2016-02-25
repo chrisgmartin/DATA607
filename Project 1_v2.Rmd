@@ -3,8 +3,8 @@ title: "DATA607 - Project 1 - Chess Tournament"
 author: "Asher Meyers & Chris Martin"
 output:
   html_document:
-    highlight: pygments
-    theme: cerulean
+    highlight: kate
+    theme: united
 ---
 
 #Project   1 - Chess Tournament
@@ -103,3 +103,39 @@ kable(head(Opponents))
 ChessTable$OpponentAverage <- Opponents$Average
 kable(head(ChessTable))
 ```
+
+###Plotting the table
+
+```{r}
+require(ggplot2)
+ggplot(ChessTable, aes(x=PreRating, y=OpponentAverage, label = Name, colour = Points)) + geom_point() + geom_text(aes(label=ifelse(PreRating>1700, as.character(Name),'')), size = 2, hjust=0) + xlim(0,2000) + ggtitle("Player to Opponent Scatterplot")
+```
+
+
+***
+
+###Predicting an eigth match win
+
+This tournament just got out of hand: against the rules of the tournament, an eigth round against a random player in the tournament has been set! Let's find the chances that a player will face-off and win against their random opponent:
+
+####Selecting the random opponent
+
+We'll start by selecting (at random, without replacement) which opponent our player will face, and then predict the chances of a win.
+
+```{r}
+ChessTable$Opp8 <- sample(1:length(ChessTable[,1]), 64, replace=F)
+ChessTable$Opp8Rating <- ChessTable$PreRating[ChessTable$Opp8[1:64]]
+kable(head(ChessTable))
+```
+
+####Calculating the chance of winning
+
+Using the calculation WP = 1 / [10^ (dR/400) + 1 ] where dR is the difference in ratings, we can come up with a Winning Probability[1]
+
+```{r}
+ChessTable$ChanceOfWin <- paste(round((1 / (10^ ((ChessTable$Opp8Rating - ChessTable$PreRating) / 400) + 1)) * 100, 2), "%", sep = "")
+kable(head(ChessTable))
+```
+
+
+[1] Reference: http://www.caissa.com/support/chess-ratings.php
