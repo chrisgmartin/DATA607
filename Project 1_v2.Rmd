@@ -3,8 +3,11 @@ title: "DATA607 - Project 1 - Chess Tournament"
 author: "Asher Meyers & Chris Martin"
 output:
   html_document:
-    highlight: kate
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
     theme: united
+    highlight: kate
 ---
 
 #Project   1 - Chess Tournament
