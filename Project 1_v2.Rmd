@@ -1,13 +1,16 @@
 ---
 title: "DATA607 - Project 1 - Chess Tournament"
 author: "Asher Meyers & Chris Martin"
+date: "February 25, 2016"
 output:
   html_document:
-    toc: yes
+    toc: true
     toc_depth: 4
     toc_float: yes
     theme: united
     highlight: kate
+  pdf_document:
+    toc: true
 ---
 
 #Project   1 - Chess Tournament
