@@ -1,0 +1,172 @@
+---
+title: "DATA607 - Tidying and Transforming Data"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: cerulean
+    highlight: kate
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+```
+
+## Creating the table
+
+The first task is to create a *.CSV file that includes specific untidy information on two airlines' arrival delays across five destinations. Let's get started on building the table.
+
+The most simple way to build the table (below) is to create a series of lists and combine them into a data frame. When creating a data frame, R combines the lists by columns (not rows) so some planning might be necessary when creating a table this way. Otherwise, you can create a data frame and then transform (transpose) the data to switch the columns to rows.
+
+```{r}
+a <- c("","ALASKA","","","AM WEST","")
+b <- c("","on time","delayed","","on time","delayed")
+c <- c("Los Angeles",497,62,"",694,117)
+d <- c("Phoenix",221,12,"",4840,415)
+e <- c("San Diego",212,20,"",383,65)
+f <- c("San Francisco",503,102,"",320,129)
+g <- c("Seattle",1841,305,"",201,61)
+flightinfo <- data.frame(a,b,c,d,e,f,g)
+flightinfo
+```
+
+Table created, now we'll write the table to a .CSV file which will be saved to (just assuming here) your *My Documents* folder.
+
+```{r}
+#write.csv(flightinfo, file = "flightinfo.csv", header = TRUE)
+```
+
+## Reading the data, tidying and transforming it
+
+Now that we have our table, we'll tidy it up using *tidyr* and *dplyr*.  First we can load the two packages:
+
+```{r, results  = FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+Since the data frame is already loaded, we can start to tidy it. First, I'll transpose it since it will make it easier to work the table in columns rather than rows. Then I'll create two tables: one for ALASKA and one for AM WEST. In addition, I'd rather not use that extra line for the carrier name, so I'm going to add an extra column at the end to specify which airline it is, remove that top line, then change the new topline to headers.
+
+```{r}
+flightinfo <- t(flightinfo)
+flightinfo
+
+ALASKA <- flightinfo[,c(1:3)]
+ALASKA <- data.frame(city = ALASKA[,1], carrier = ALASKA[1,2], on_time = ALASKA[,2], delayed = ALASKA[,3])
+ALASKA <- ALASKA[c(3:length(ALASKA[,1])),]
+kable(ALASKA)
+
+AMWEST <- flightinfo[,c(1,5:6)]
+AMWEST <- data.frame(city = AMWEST[,1], carrier = AMWEST[1,2], on_time = AMWEST[,2], delayed = AMWEST[,3])
+AMWEST <- AMWEST[c(3:length(AMWEST[,1])),]
+kable(AMWEST)
+```
+
+The data was seperated, now we want to re-join them so we can easier analyze them, and sort them so we can easily see them. Also, just to make sure we have the right type for all items, we'll just reset everything to their appropriate types.
+
+```{r results = FALSE, warning = FALSE}
+#bind/join the tables
+flightinfo <- as.data.frame(bind_rows(AMWEST, ALASKA))
+
+#re-establish the types
+flightinfo$on_time <- as.integer(flightinfo$on_time)
+flightinfo$delayed <- as.integer(flightinfo$delayed)
+flightinfo$city <- as.character(flightinfo$city)
+flightinfo$carrier <- as.character(flightinfo$carrier)
+```
+
+```{r}
+#sort and group the table
+flightinfo <- flightinfo %>% 
+  arrange(city, carrier)
+kable(flightinfo)
+```
+
+## Comparing the arrival delays
+
+Phew, all set to do some work now. We've got our table set up and organized so we can do some comparisons. The first thing we'll do is find the total number of flights each carrier made to each city; this total will be added to a new column titled *total*. The second thing we'll do is calculate the percentage of flights from each carrier and city that were delayed, we'll add this to a columned titled *percent_delayed*. This second new column will utilize the first new column, so we have to set up the first one first. Also, the *percent_delayed* column has too many decimals so rounded is more visually appealing.
+
+
+```{r}
+#add columns for percent of flights delayed and total flights
+flightinfo$total <- flightinfo$on_time + flightinfo$delayed
+flightinfo$percent_delayed <- round(flightinfo$delayed / flightinfo$total, 2)
+kable(flightinfo)
+```
+
+
+## Analyzing the data
+
+I'll pose a few questions for myself to answer:
+
+  - What city did ALASKA have the least delays in?
+  - What city did AM WEST have the most delays in?
+  - Which carrier had the highest percentage of delays?
+  - Which carrier was busier (had the most total flights)?
+  - Which city was the busiest (had the most total flights)?
+
+
+```{r}
+#city with least delays for ALASKA
+kable(flightinfo %>% 
+  filter(carrier == "ALASKA") %>% 
+    arrange(delayed)  %>% 
+      select(one_of(c("city", "delayed")))
+)
+flightinfo %>% 
+  filter(carrier == "ALASKA") %>% 
+    arrange(delayed)  %>% 
+      select(one_of(c("city", "delayed"))) %>% 
+        ggplot(., aes(x=city, y=delayed, fill=city)) + geom_bar(position="dodge", stat="identity", colour="black") + scale_fill_brewer(palette="Pastel1") + ggtitle("ALASKA Airlines' Delays")
+
+
+#city with most delays for AM WEST
+kable(flightinfo %>% 
+  filter(carrier == "AM WEST") %>% 
+    arrange(desc(delayed))  %>% 
+      select(one_of(c("city", "delayed")))
+)
+flightinfo %>% 
+  filter(carrier == "AM WEST") %>% 
+    arrange(desc(delayed))  %>% 
+      select(one_of(c("city", "delayed"))) %>% 
+        ggplot(., aes(x=city, y=delayed, fill=city)) + geom_bar(position="dodge", stat="identity", colour="black") + scale_fill_brewer(palette="Pastel1") + ggtitle("AM WEST Airlines' Delays")
+
+
+#carrier with highest percentage of delays
+kable(flightinfo %>% 
+  arrange(desc(percent_delayed)) %>% 
+    group_by(carrier) %>% 
+      summarise(round(sum(delayed) / sum(total), 2))
+)
+flightinfo %>% 
+  arrange(desc(percent_delayed)) %>% 
+    group_by(carrier) %>% 
+      summarise(per_delay = round(sum(delayed) / sum(total), 2)) %>% 
+        ggplot(., aes(x=carrier, y=per_delay, fill=carrier)) + geom_bar(position="dodge", stat="identity", colour="black") + scale_fill_brewer(palette="Pastel1") + ggtitle("Percent of Delays by Carrier")
+
+
+#busiest carrier
+kable(flightinfo %>% 
+  group_by(carrier) %>% 
+    summarise(sum(total))
+)
+flightinfo %>% 
+  group_by(carrier) %>% 
+    summarise(sum1 = sum(total)) %>% 
+      ggplot(., aes(x=carrier, y=sum1, fill=carrier)) + geom_bar(position="dodge", stat="identity", colour="black") + scale_fill_brewer(palette="Pastel1") + ggtitle("Number of Flights by Carrier")
+
+
+#busiest city
+kable(flightinfo %>% 
+  group_by(city) %>% 
+    summarise(sum(total))
+)
+
+flightinfo %>% 
+  group_by(city) %>% 
+    summarise(sum1 = sum(total)) %>% 
+      ggplot(., aes(x=city, y=sum1, fill=city)) + geom_bar(position="dodge", stat="identity", colour="black") + scale_fill_brewer(palette="Pastel1") + ggtitle("Number of Flights by City")
+```
