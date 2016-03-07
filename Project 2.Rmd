@@ -1,0 +1,262 @@
+---
+title: "DATA607 - Project 2 - Untidy Data"
+author: "Chris Martin"
+date: "March 6, 2016"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: cerulean
+    highlight: kate
+---
+
+## Installing the Necessary Packages
+
+In this project, we were tasked with tidying and analyzing the data of three different data sets. To kick it off, we'll install the needed packages:
+```{r message=FALSE}
+library("knitr")
+library("stringr")
+library("tidyr")
+library("dplyr")
+```
+
+## Untidy Auction Data
+
+The first dataset I'll tidy and analyse is my own for untidy Auction Data. What makes this data untidy is that the descriptions include a heavy amount of text that could be useful in analysis and the estimate prices are combined with a high and low estimate. Now we can import the data and see what it is we want to pull out. While there is certainly a lot more we can do with the data, the analysis we'll perform for this dataset is:
+
+  - Find the total percent difference from the high estimate and the sold price
+  - Find the total percent difference from the low estimate and the sold price
+
+
+```{r}
+auctiondata <- read.csv(url("https://raw.githubusercontent.com/chrisgmartin/DATA607/master/utidy_auction_data.csv"),
+                           sep = ",", stringsAsFactors=FALSE)
+kable(auctiondata)
+```
+
+To tidy this, we'll seperate the range from two figures to a high/low estimate and also pull out the heigth and width from the description. For the estimates we could try extracting them individually, but it requires a bit more headache since it's not as easy to skip the first result (as seen below):
+
+```{r}
+#Estimate: High
+str_extract(auctiondata$Range, "\\$[[:digit:]]+")
+#Estimate: Low
+str_extract(auctiondata$Range, "\\$[[:digit:]]+")
+```
+
+Instead I'll simply extract all using *str_extract_all* and use *seq* create the columns from there to add to the data.
+
+```{r}
+e1 <- unlist(str_extract_all(auctiondata$Range, "\\$[[:digit:]]+"))
+e1
+auctiondata$est_low <- e1[seq(1,6,2)]
+auctiondata$est_high <- e1[seq(2,6,2)]
+kable(auctiondata)
+```
+
+This looks great, however the dollar signs will throw off any analysis so we'll remove them all.
+
+```{r}
+auctiondata$Price <- as.integer(str_replace_all(auctiondata$Price, "\\$", ""))
+auctiondata$est_low <- as.integer(str_replace_all(auctiondata$est_low, "\\$", ""))
+auctiondata$est_high <- as.integer(str_replace_all(auctiondata$est_high, "\\$", ""))
+kable(auctiondata)
+```
+
+For the analysis, we want to find the total percentage difference between the estimates and actual sales price.
+
+```{r}
+#High Estimate:
+str_c(round(((sum(auctiondata$est_high) - sum(auctiondata$Price)) / sum(auctiondata$Price)) * 100, 2),"%")
+#Low Estimate:
+str_c(round(((sum(auctiondata$est_low) - sum(auctiondata$Price)) / sum(auctiondata$Price)) * 100, 2),"%")
+```
+
+Perhaps this analysis was too easy with the small table. The next two examples should be more complicated:
+
+
+
+## Untidy Oil Consumption Data
+
+This fictional dataset comes from **Kishore Prasad** and displays oil consumption details of various brands in the first half of 2015, along with opening balances. The numbers are in the format of *Purchased*:*COnsumed*. The **Brands** in this case are *Caltex*, *Gulf*, and *Mobil*, while the **Category** includes *Engine Oil* and *GearBox Oil*. I've started by uploading the dataset into my personal GitHub account so that I can easily import the data for analysis. The analysis request is to:
+
+  - Give the closing balance of Category + Brand
+  - Identify the most Consumed Brands across the two Categories
+  
+```{r}
+oildata <- read.csv(url("https://raw.githubusercontent.com/chrisgmartin/DATA607/master/untidy_oil_consumption.csv"),
+                           sep = ",", stringsAsFactors=FALSE)
+kable(oildata)
+```
+
+As we can see from the Brands, the quantity purchased and quantity consumed are seperated by a semi-colon *:*, so we'll start by separating the two. Since we're only looking for the total quantity purchased and consumed, the analysis is (thankfully) made slightly easier since the Month really doesn't matter. We can ignore that column. We're going to create three lists, one for each brand containing the purchased and consumed quantities, then add them back into the table.
+
+```{r}
+#Caltex
+brand1 <- unlist(str_split(oildata$Caltex, " :  "))
+oildata$brand1 <- c("Caltex")
+oildata$CalPurchased <- brand1[seq(1,28,2)]
+oildata$CalConsumed <- brand1[seq(2,28,2)]
+
+#Gulf
+brand2 <- unlist(str_split(oildata$Gulf, " :  "))
+oildata$brand2 <- c("Gulf")
+oildata$GulfPurchased <- brand2[seq(1,28,2)]
+oildata$GulfConsumed <- brand2[seq(2,28,2)]
+
+#Mobil
+brand3 <- unlist(str_split(oildata$Mobil, " :  "))
+oildata$brand3 <- c("Mobil")
+oildata$MobPurchased <- brand3[seq(1,28,2)]
+oildata$MobConsumed <- brand3[seq(2,28,2)]
+
+#Remove redunant lines
+oildata <- oildata[,c(1:2,6:14)]
+kable(head(oildata))
+```
+
+Looking great, but not looking tidy. Let's make it tidy. To do this, we'll re-separate all the columns and give them the same column names, then merge them using *bind_rows*. Yes, this could have been done in the previous step, but what's the fun in simplicity?
+
+```{r}
+brand1 <- oildata[,c(1:5)]
+colnames(brand1) <- c("Month", "Category", "Brand", "Purchased", "Consumed")
+brand2 <- oildata[,c(1:2,6:8)]
+colnames(brand2) <- c("Month", "Category", "Brand", "Purchased", "Consumed")
+brand3 <- oildata[,c(1:2,9:11)]
+colnames(brand3) <- c("Month", "Category", "Brand", "Purchased", "Consumed")
+
+#Combining the tables
+oildata2 <- bind_rows(brand1, brand2, brand3)
+
+#Making sure the right columns are integers
+oildata2$Purchased <- as.integer(oildata2$Purchased)
+oildata2$Consumed <- as.integer(oildata2$Consumed)
+kable(head(oildata2))
+kable(tail(oildata2))
+```
+
+It's beautiful! Now let's analyse:
+
+  - Give the closing balance of Category + Brand
+  - Identify the most Consumed Brands across the two Categories
+
+```{r}
+#Closing balances of each Brand
+oildata2 %>% 
+  group_by(Brand) %>% 
+      summarise(sum(Consumed))
+
+#Closing balances of each Category
+oildata2 %>% 
+  group_by(Category) %>% 
+      summarise(sum(Consumed))
+
+#Closing balances of each Brand and Category
+oildata2 %>% 
+  group_by(Brand, Category) %>% 
+      summarise(sum(Consumed))
+
+#Identifying the most Consumed Brands across the two Categories
+oildata2 %>% 
+  group_by(Category, Brand) %>% 
+    summarise(sum1 = sum(Consumed)) %>% 
+      arrange(desc(sum1)) %>% 
+        top_n(.,1,sum1)
+```
+
+That's awesome.
+
+
+
+## Untidy Generator Capacity Prices
+
+The third and final dataset in this article comes from **Daniel Smilowitz** and displays auction pricing across four locations by month for *Monthly* auctions, *Spot* auctions, and *Strip* auctions. Monthly auctions take place monthly before final values are known, spot auctions take place monthly once values are finalized, and strip auctions take place twice a year (May and November) for six months following. The locations of the auctions are: New York City (*NYC*), Long Island (*LI*), Lower Hudson Valley (*LHV*), and Rest of State (*ROS*). Like the two previous sets, I've uploaded this to my personal GitHub for easy importing. The analysis we'll perform on this data includes:
+
+  - Which month of the year sees the highest prices in each location?
+  - What is the average difference between NYC and ROS prices?
+  - Which calendar year saw the highest average price across regions (ignoring weighting)?
+  - Is the monthly auction or the spot auction more volatile (i.e. which has the most variability in pricing)?
+  - What category had the highest price in each year? *added myself*
+```{r}
+genprices <- read.csv(url("https://raw.githubusercontent.com/chrisgmartin/DATA607/master/untidy_Generator_Capacity_Prices.csv"),
+                           sep = ",", stringsAsFactors=FALSE)
+kable(head(genprices))
+```
+
+Let's tidy this information. We know that there are three categories: *Monthly*, *Spot*, and *Strip* so we'll make a table for each one, and then merge them together. After that we'll split the *Date* into *Month* and *Year*, followed by changing *N/A* values to *0*, which is a **critical assumption** and **will skew the analysis**. We'll over-write the headers though so it's a bit more clear which locations we're looking at:
+
+```{r}
+#Fixing the column names:
+colnames(genprices) <- genprices[1,c(1:13)]
+genprices <- genprices[2:151,]
+
+#Seperating the three Categories and adding the category names to the three tables:
+Monthly1 <- genprices[,1:5]
+Monthly1$Category <- c("Monthly")
+Spot1 <- genprices[,c(1,6:9)]
+Spot1$Category <- c("Spot")
+Strip1 <- genprices[,c(1,10:13)]
+Strip1$Category <- c("Strip")
+
+#Merging the tables:
+genprices2 <- bind_rows(Monthly1, Spot1, Strip1)
+
+#Making sure the price columns are integers and removing the dollar signs
+genprices2$NYC <- as.numeric(unlist(str_replace_all(genprices2$NYC, "\\$", "")))
+genprices2$LHV <- as.numeric(unlist(str_replace_all(genprices2$LHV, "\\$", "")))
+genprices2$LI <- as.numeric(unlist(str_replace_all(genprices2$LI, "\\$", "")))
+genprices2$ROS <- as.numeric(unlist(str_replace_all(genprices2$ROS, "\\$", "")))
+
+#Seperating the month and year:
+genprices2[,7:8] <- t(as.data.frame(strsplit(genprices2$Location,"-")))
+colnames(genprices2)[c(7:8)] <- c("Month","Year")
+
+#Removing redundant columns and change NA's to 0:
+genprices2[is.na(genprices2)] <- 0
+genprices <- genprices2[,c(2:8)]
+kable(head(genprices))
+kable(tail(genprices))
+```
+
+Now it's time to analyse:
+
+  - Which month of the year sees the highest prices in each location?
+  - What is the average difference between NYC and ROS prices?
+  - Which calendar year saw the highest average price across regions (ignoring weighting)?
+  - Is the monthly auction or the spot auction more volatile (i.e. which has the most variability in pricing)?
+  - What category had the highest price in each year? *added myself*
+
+```{r}
+#Highest Monthly prices in each location, example: NYC
+genprices %>% 
+  group_by(Month, Category) %>% 
+    summarise(max1 = max(NYC)) %>% 
+      group_by(Month) %>% 
+        summarise(max2 = max(max1)) %>% 
+          arrange(desc(max2))
+
+#Average difference between NYC and ROS prices
+round(mean(genprices$NYC - genprices$ROS), 2)
+
+#Calendar Year with highest average price across regions, example: LVH
+genprices %>% 
+  group_by(Year, Category) %>% 
+    summarise(max1 = max(LHV)) %>% 
+      group_by(Category, Year) %>% 
+        summarise(max2 = max(max1)) %>% 
+          top_n(.,1,max2)
+    
+#Month or Spot auction more volitile, example: ROS
+ROS1 <- filter(genprices, genprices$Category == c("Monthly"))
+ROS2 <- filter(genprices, genprices$Category == c("Spot"))
+c(sd(ROS1$ROS),sd(ROS2$ROS))
+#The Spot auction market is more volitile
+
+#Auction market with the highest price each year, example: LVH
+genprices %>% 
+  group_by(Year, Category) %>% 
+    summarise(max1 = max(LHV)) %>%
+      group_by(Year) %>% 
+        top_n(.,1,max1)
+```
+
+**Fantastic**
