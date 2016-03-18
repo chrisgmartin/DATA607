@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<books>
+	<book id="1">
+		<name>The Hitchhiker's Guide to the Galaxy</name>
+		<author>Douglas Adams</author>
+		<planet>Space</planet>
+		<publisher>Del Rey Books</publisher>
+		<color>green</color>
+		<baddie>Vogons</baddie>
+	</book>
+	<book id="2">
+		<name>Life, the Universe and Everything</name>
+		<author>Douglas Adams</author>
+		<planet>Krikkit</planet>
+		<publisher>Del Rey Books</publisher>
+		<color>purple</color>
+		<baddie>People of Krikkit</baddie>
+	</book>
+	<book id="3">
+		<name>And Another Thing...</name>
+		<author>Eoin Colfer, Jane Belson, Douglas Adams</author>
+		<planet>Earth...ish</planet>
+		<publisher>Hyperion</publisher>
+		<color>blue</color>
+		<baddie>Vogons</baddie>
+	</book>
+</books>	
