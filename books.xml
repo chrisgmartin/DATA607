@@ -19,7 +19,7 @@
 	</book>
 	<book id="3">
 		<name>And Another Thing...</name>
-		<author>Eoin Colfer, Jane Belson, Douglas Adams</author>
+		<author one="Eoin Colfer" two="Jane Belson" three="Douglas Adams"/>
 		<planet>Earth...ish</planet>
 		<publisher>Hyperion</publisher>
 		<color>blue</color>
