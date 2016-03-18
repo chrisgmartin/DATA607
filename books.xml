@@ -1,16 +1,6 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
-<!DOCTYPE books [
-<!ELEMENT books (book) >
-<!ELEMENT book (name, author, planet, publisher, color, baddie)>
-<!ELEMENT name (#PCDATA) >
-<!ELEMENT author (#PCDATA) >
-<!ELEMENT planet (#PCDATA) >
-<!ELEMENT publisher (#PCDATA) >
-<!ELEMENT color (#PCDATA) >
-<!ELEMENT baddie (#PCDATA) >
-<!ATTLIST book id CDATA #IMPLIED>
-]>
-<books>
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog>
+
 	<book id="1">
 		<name>The Hitchhiker's Guide to the Galaxy</name>
 		<author>Douglas Adams</author>
@@ -35,4 +25,4 @@
 		<color>blue</color>
 		<baddie>Vogons</baddie>
 	</book>
-</books>	
+</catalog>	
