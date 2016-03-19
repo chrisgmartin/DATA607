@@ -17,7 +17,11 @@
 	},
 	{
 	"name" : "And Another Thing...",
-	"author" : "Eoin Colfer, Jane Belson, Douglas Adams",
+	"author" : [
+		"Eoin Colfer",
+		"Jane Belson",
+		"Douglas Adams"
+		],
 	"planet" : "Earth...ish",
 	"publisher" : "Hyperion",
 	"color" : "blue",
