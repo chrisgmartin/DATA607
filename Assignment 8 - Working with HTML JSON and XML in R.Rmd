@@ -1,0 +1,131 @@
+---
+title: "Assignment 8 - Working with HTML JSON and XML in R"
+author: "Chris Martin"
+date: "March 18, 2016"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: cerulean
+    highlight: kate
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+```
+
+## Objective
+
+In this assignment, our objective is to choose three books (at least one of which has more than one author) and include some attributes that may be interesting. The books I've selected for this come from a fantastic series called: The Hitchhicker's Guide to the Galaxy. While there are six books, five were written by creator Douglas Adams with the six being Eoin Colfer with the support of Jane Belson (Adma's widow) whom we'll credit authorship along with token authorship by Douglas Adams (the book will have three authors in our dataset). The three books we'll select are mostly at random, with the third defaulting to "And Another Thing..." due to it having more than one author (which we forced it to, it didn't get much of a choice). Here's the random selection:
+
+```{r eval=FALSE}
+booklist <- c("The Hitchhicker's Guide to the Galaxy", "The Restaurant at the End of the Universe", "Life, the Universe and Everything", "So Long, and Thanks for All the Fish", "Mostly Harmless")
+sample(booklist,2)
+```
+
+The results: "The Hitchhicker's Guide to the Galaxy" and "Life, the Universe and Everything"! Congrats to the winners. Now we'll need to select a few attributes:
+
+```{r eval=FALSE}
+bookattributes <- c("book cover color", "main character", "love interest", "main planet", "publish date", "adapted for radio", "bad guys", "main planet/location/ship", "publisher", "goodreads book rating", "number of pages")
+sample(bookattributes, 4)
+```
+
+The results: "main planet", "publisher", "book cover color", and "bad guys" (which will be the name of the main bad guys or bad guy species/group).
+
+##Set-up
+
+Here's what the table looks like in R, which has been re-created seperately in HTML, JSON, and XML formats (see the import section for the links).
+
+```{r}
+books <- data.frame(matrix(vector(), 3, 6), stringsAsFactors = FALSE)
+colnames(books) <- c("name", "author", "planet", "publisher", "color", "baddie")
+books$name <- c("The Hitchhicker's Guide to the Galaxy", "Life, the Universe and Everything", "And Another Thing...")
+books$author <- c("Douglas Adams", "Douglas Adams", "Eoin Colfer, Jane Belson, Douglas Adams")
+books$planet <- c("Space", "Krikkit", "Earth...ish")
+books$publisher <- c("Del Rey Books", "Del Rey Books", "Hyperion")
+books$color <- c("green", "purple", "blue")
+books$baddie <- c("Vogons", "People of Krikkit", "Vogons")
+kable(books)
+```
+
+##Export
+
+To continue our stampede toward the objective, we're going to need to export this table into HTML, XML, and JSON file formats. Let's load some packages first that will help:
+
+```{r message=FALSE, warning=FALSE}
+library(jsonlite)
+library(XML)
+library(plyr)
+library(RCurl)
+library(htmltab)
+library(xtable)
+```
+
+Now we'll use these packages to export our table into the various file types:
+
+###HTML export
+
+```{r}
+#HTML file
+books.html1 <- print(xtable(books), type="html", file="books.html")
+```
+
+###XML export
+
+```{r}
+#XML file
+#I actually couldn't figure this out.
+```
+
+###JSON export
+
+```{r}
+#JSON file
+books.json1 <- toJSON(books, pretty=TRUE)
+file.output <- file("books.json")
+writeLines(books.json1, file.output)
+close(file.output)
+```
+
+##Import
+
+I also uploaded a hand-made version of the files (created using Notepad++) to my personal GitHub account which can be used to import the files back into R (which are notified here as the alternative method when a local version couldn't be exported.)
+
+###HTML file import
+
+Disclaimer: I cheated a bit here. Instead of using the html file we previously exported, I hand-made a version to show off the differences between the types of formats.
+
+```{r}
+#HTML file
+#alternative: books.html <- htmltab(doc = "books.html")
+
+html.url <- getURL("https://raw.githubusercontent.com/chrisgmartin/DATA607/master/books.html")
+books.html2 <- htmltab(doc = html.url)
+kable(books.html2)
+```
+
+###XML file import
+
+```{r}
+#XML file
+xml.url <- getURL("https://raw.githubusercontent.com/chrisgmartin/DATA607/master/books.xml", ssl.verifyPeer=FALSE)
+books.xml <- xmlParse(xml.url)
+books.xml2 <- ldply(xmlToList(books.xml), data.frame)
+kable(books.xml2)
+```
+
+###JSON file import
+
+```{r}
+#JSON file
+#alternative: books.json2 <- fromJSON("books.json")
+
+books.json2 <- fromJSON("https://raw.githubusercontent.com/chrisgmartin/DATA607/master/books.json")
+kable(books.json2)
+```
+
+
+##Wrap-up
+
+As you can see from the examples, each format has it's own unique features, pros, and cons. As Douglas Adams himself would have said (he actually did say): **"A common mistake that people make when trying to design something completely foolproof is to underestimate the ingenuity of complete fools."**

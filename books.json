@@ -1,30 +1,26 @@
-{"books" :[
-	{
-	"name" : "Hitchhiker's Guide to the Galaxy",
-	"author" : "Douglas Adams",
-	"planet" : "Space",
-	"publisher" : "Del Rey Books",
-	"color" : "green",
-	"baddie" : "Vogons"
-	},
-	{
-	"name" : "Life, the Universe and Everything",
-	"author" : "Douglas Adams",
-	"planet" : "Krikkit",
-	"publisher" : "Del Rey Books",
-	"color" : "purple",
-	"baddie" : "People of Krikkit"
-	},
-	{
-	"name" : "And Another Thing...",
-	"author" : [
-		"Eoin Colfer",
-		"Jane Belson",
-		"Douglas Adams"
-		],
-	"planet" : "Earth...ish",
-	"publisher" : "Hyperion",
-	"color" : "blue",
-	"baddie" : "Vogons"
-	}]
-}
+[
+  {
+    "name": "The Hitchhicker's Guide to the Galaxy",
+    "author": "Douglas Adams",
+    "planet": "Space",
+    "publisher": "Del Rey Books",
+    "color": "green",
+    "baddie": "Vogons"
+  },
+  {
+    "name": "Life, the Universe and Everything",
+    "author": "Douglas Adams",
+    "planet": "Krikkit",
+    "publisher": "Del Rey Books",
+    "color": "purple",
+    "baddie": "People of Krikkit"
+  },
+  {
+    "name": "And Another Thing...",
+    "author": "Eoin Colfer, Jane Belson, Douglas Adams",
+    "planet": "Earth...ish",
+    "publisher": "Hyperion",
+    "color": "blue",
+    "baddie": "Vogons"
+  }
+]
