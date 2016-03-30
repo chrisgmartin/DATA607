@@ -1,0 +1,119 @@
+---
+title: "DATA607 - Web APIs"
+author: "Chris G. Martin"
+date: "March 29, 2016"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: cerulean
+    highlight: kate
+---
+
+#Working New York Time's Web APIs
+
+In this assignment, we're tasked with choosing one of the New York Times APIs, constructing an interface to read the JSON data (NYT's default extension type), and transforming it into an R data frame. I chose to first look at the API for Book Reviews, thinking it would help me pick out my next book (Disclaimer: my book queue is already massive). As you can see from the results below, the API didn't help much. I then decided to use their Article Search API to view articles based on the book I'm currently reading (*'The Three-Body Problem'* by Cixin Liu -- **a must read** for Sci-Fi fans).
+
+As always, our library set up comes first:
+
+```{r message=FALSE}
+library('rjson')
+library('knitr')
+library('jsonlite')
+library('dplyr')
+library('ggplot2')
+library('stringr')
+```
+
+***
+
+##Book Review API
+
+###Gathering the Data
+
+After requesting a key for the book review API, I queried the API to find all book reviews for those written by Cixin Liu. The results came up empty. Moving on, I used the API to find book reviews on a much reviewed author: James Patterson. Here is the query to do so, with the results displayed below. Since the API data includes two columns (the first column is copyright), we have to extract the second column to get all of the results (*req$results*).
+
+```{r}
+book_key <- "&api-key=8bc754f9b9602ba52ffd5d40ea63e9da:8:74836743"
+book_url <- "http://api.nytimes.com/svc/books/v3/reviews.json?author=James%20Patterson"
+book_req <- fromJSON(paste0(book_url, book_key))
+
+book_reviews <- book_req$results
+kable(book_reviews)
+```
+
+###Analyzing the Results
+
+With the results of the pull in hand, we could analyze the (limited) amount of data in a number of ways. Here are some simple examples:
+
+
+```{r}
+#1. Count of Books Reviewed by Reviewer
+book_reviews %>%
+  group_by(byline) %>%
+  count(byline)
+```
+
+```{r}
+#2. Timeline of dates of review
+#re-ordering the data frame from oldest to latest
+book_reviews$publication_dt <- as.Date(book_reviews$publication_dt, format="%Y-%m-%d")
+book_reviews$start <- book_reviews$publication_dt
+book_reviews$end <- book_reviews$publication_dt
+book_reviews <- book_reviews[order(as.Date(book_reviews$publication_dt, format="%d/%m/%Y")),]
+
+#adding the start/end date and calculating the number of days between publications
+book_reviews$start <- book_reviews$publication_dt
+book_reviews$end <- book_reviews$publication_dt
+for (i in 2:length(book_reviews$publication_dt)) {
+  book_reviews$start[i] <- book_reviews$end[i - 1]
+  i <- i+1
+}
+book_reviews$start <- as.Date(book_reviews$start, format="%Y-%m-%d")
+book_reviews$end <- as.Date(book_reviews$end, format="%Y-%m-%d")
+book_reviews$days_to_write <- as.numeric(book_reviews$end - book_reviews$start)
+
+#graphing the data
+ggplot(book_reviews, aes(x=book_title, y=days_to_write, fill=book_title)) + geom_bar(stat="identity") + xlab("Book Title") + ylab("Days to Publish") + guides(fill=FALSE) + theme(axis.text=element_text(size=10), axis.title=element_text(size=14, face="bold")) + scale_x_discrete(labels=function(book_title) str_wrap(book_title, width = 10))
+```
+
+***
+
+##Article Search API
+
+Since the Book Reviews API was limited, and likely required additional pulls off of the URL of the results to get more information and deeper analysis (such as sentiment analysis on the reviews themselves), I decided to try out the Article Search API.
+
+###Gathering the Data
+
+In gathering the data, we're able to query for articles based on keywords. The keyword we'll use is the name of the author **Liu Cixin** (in Chinese, the family name is displayed first). After querying for the author and using our API key for access, the JSON file returns our data but also includes file status and copyrights. We don't want those so we filter them out. Next we realize that the query also has too many unnecessary columns, so we filter those out.
+
+```{r}
+#search for articles
+article_key <- "&api-key=a5a5ad65b30b53b4bc8b8cc5f74f8418:19:74836743"
+article_url <- "http://api.nytimes.com/svc/search/v2/articlesearch.json?q=Liu+Cixin"
+article_req <- fromJSON(paste0(article_url, article_key))
+articles_all <- article_req$response$docs
+articles <- articles_all[,c(2,7,11,12,13,14,18,20)]
+kable(head(articles,2))
+```
+
+###Analyzing the Results
+
+With our results in hand we can use the data frame to analyze the data in a variety of ways. 
+
+```{r}
+#1. Count of Article Types
+articles %>%
+  group_by(document_type) %>%
+  count(document_type)
+
+#2. Count of Sections the Article can be found in
+articles %>%
+  group_by(section_name) %>%
+  count(section_name)
+
+#2. Count of where each Article came through from (which News Desk)
+articles %>%
+  group_by(news_desk) %>%
+  count(news_desk)
+```
