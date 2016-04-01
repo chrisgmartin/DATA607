@@ -1,0 +1,49 @@
+---
+title: "Project_3_Data_Collection"
+author: "Kishore Prasad"
+date: "March 17, 2016"
+output: html_document
+---
+
+```{r message=FALSE, warning=FALSE}
+library(RCurl)
+library(stringr)
+library(knitr)
+library(XML)
+library(rvest)
+library(RMySQL)
+
+```
+
+
+```{r}
+
+mydb = dbConnect(MySQL(), user='root', password='root', dbname='ds_skills', host='localhost')
+
+URL_list = dbGetQuery(conn = mydb, statement = "select doc_id, dc_id, doc_path as WebpageURL, doc_title as Title from documents where dc_id=2")
+
+skill_list = dbGetQuery(conn = mydb, statement = "select skill_id, sc_id, skill_name as Skill from skills")
+
+d <- data.frame(doc_id=0, Skill_id=0, ds_freq=0, stringsAsFactors = FALSE)
+
+for (eachURL in URL_list$WebpageURL){
+    URL_raw<- htmlParse(getURL(eachURL, followlocation = TRUE), asText = T)
+    URL_clean <- xpathSApply(URL_raw, "//text()[not(ancestor::script)] [not(ancestor::style)] [not(ancestor::noscript)] [not(ancestor::form)]", xmlValue)
+    URL_clean = paste(URL_clean, collapse = "\n")
+
+    for (eachskill in skill_list$Skill) {
+        d <- rbind(d, c(URL_list[URL_list$WebpageURL==eachURL,1], skill_list[skill_list$Skill==eachskill,1],
+                        str_count(tolower(URL_clean), paste0("\\b", tolower(eachskill), "\\b"))))        
+        
+    }
+}
+
+dbWriteTable(mydb, 'doc_skills', d, row.names=F, append=T)
+
+dbDisconnect(mydb)
+
+#kable(d)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

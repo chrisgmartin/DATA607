@@ -1,0 +1,100 @@
+---
+title: "Project_3"
+author: "Robert Sellers & Chirag Vithalani"
+date: "March 15, 2016"
+output: html_document
+---
+
+**Libraries Required**
+
+```{r eval=FALSE}
+library(data.table)
+library(dplyr)
+library(stringr)
+library(RMySQL)
+```
+
+**Twitter API authentication.** 
+
+**This requires a twitter account, and specific access values per each of the setup_twitter_oauth function parameters.**
+
+***Do not attempt this code without credentials. Please visit https://dev.twitter.com/oauth for further information.*** 
+
+```{r eval=FALSE}
+#Warning: Values must be retrieved via twitter account and API / OAuth authentication
+############################DO NOT RUN############################
+setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
+twitter_results_March_XX<-searchTwitter("#datascience", n=10000)
+twitter_results_March_XX<- Map(as.data.frame, twitter_results_March_XX)
+twitter_results_March_XX<- rbindlist(twitter_results_March_XX) #uses data.table library
+############################DO NOT RUN############################
+```
+
+**Or to skip authentication and load the twitter results directly, please run the following instead:**
+
+```{r}
+twitter_results_march_16<-read.csv(file="https://raw.githubusercontent.com/RobertSellers/SlackProjects/master/data/twitter_results_March_16.csv", header=TRUE, sep=",")
+twitter_results_march_18<-read.csv(file="https://raw.githubusercontent.com/RobertSellers/SlackProjects/master/data/twitter_results_March_18.csv", header=TRUE, sep=",")
+twitter_results_march_19<-read.csv(file="https://raw.githubusercontent.com/RobertSellers/SlackProjects/master/data/twitter_results_March_19.csv", header=TRUE, sep=",")
+twitter_results_march_20<-read.csv(file="https://raw.githubusercontent.com/RobertSellers/SlackProjects/master/data/twitter_results_March_20.csv", header=TRUE, sep=",")
+```
+
+**MySQL Connection. Please ensure that you have run Populate_mySQL.R and P3 SQL DB Create.sql prior to attempting a connection.**
+
+```{r, eval=FALSE}
+con <- dbConnect(MySQL(), 
+    user = 'root',
+    password = 'password', #fill in per user
+    host = 'localhost',
+    dbname='ds_skills')
+#Skills lookup	
+lutSkills = dbReadTable(con, "skills")
+```
+
+**Lookup Frequencies Function**
+
+```{r}
+lookupFrequencies <-function(twitterData,lookupTable) {
+  lookupTable<-as.data.frame(lookupTable)
+  
+  lookupTable$Skill<-paste0("\\<",lookupTable$skill_name,"\\>")
+  lookupTable$Skill[20] <- "xxxxxxxxxx" #C++ not working as a keyword
+  i<-1
+  for(i in 1:nrow(lookupTable)) {
+      lookupTable$t_freq[i]<-length(grep(lookupTable$Skill[i], twitterData$text))
+      lookupTable$dates[i]<-as.character(as.Date(twitterData[1,6]))
+  }
+  lookupTable$Skill <- NULL #superfluous
+  lookupTable$sc_id <- NULL #superfluous
+  lookupTable$skill_name <- NULL #superfluous
+  lookupTable$dates <- as.Date(lookupTable$dates)
+  return (lookupTable)
+}
+```
+
+**Data tidying**
+
+```{r, message=FALSE}
+#Run the function per raw data result
+job1<-lookupFrequencies(twitter_results_march_16,lutSkills)
+job2<-lookupFrequencies(twitter_results_march_18,lutSkills)
+job3<-lookupFrequencies(twitter_results_march_19,lutSkills)
+job4<-lookupFrequencies(twitter_results_march_20,lutSkills)
+
+#combine the data
+twitter_freq  <- rbind(job1,job2,job3,job4) 
+```
+
+**Write the results to MySQL**
+
+```{r, message=FALSE}
+#overwrite/update the table
+dbWriteTable(con,value=twitter_freq, 
+             name="twitter_freq", 
+             append = TRUE, 
+             row.name = FALSE,
+             field.types=list("int(11)", "int(11)","date")) 
+
+#disconnect from database
+dbDisconnect(con)
+```

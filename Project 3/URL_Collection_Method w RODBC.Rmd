@@ -1,0 +1,100 @@
+---
+title: "Project_3_Data_Collection w SQL code added"
+author: "Kishore Prasad"
+date: "March 17, 2016"
+output: html_document
+---
+
+```{r message=FALSE, warning=FALSE}
+library(RCurl)
+library(stringr)
+library(knitr)
+library(XML)
+library(RODBC)
+```
+
+```{r}
+####################################################
+# Original data load via CSV files now commented out
+####################################################
+
+# URL_list <- read.csv("https://raw.githubusercontent.com/RobertSellers/SlackProjects/master/data/webpages.csv", stringsAsFactors = FALSE)
+
+# skill_list <- read.csv("https://raw.githubusercontent.com/RobertSellers/SlackProjects/master/data/skills.csv", stringsAsFactors = FALSE)
+```
+
+
+```{r}
+##################################################################
+# Code chunk for loading URL and skill info from MySQL database
+##################################################################
+
+# establish connection to local SQL server
+# NOTE: Be sure to set the server reference appropriately to comport with your own local 
+# computing environment. 
+con <- odbcConnect("local_server")
+
+# select a database to use - in this case, the 'ds_skills' database
+sqlQuery(con, "use ds_skills")
+
+
+# load the URL and document title fields from the documents table
+URL_list <- sqlQuery(con, "select doc_id, dc_id, doc_path as WebpageURL, doc_title as Title from documents where dc_id=2", stringsAsFactors = FALSE)
+
+# colnames(URL_list) <- c("WebpageURL", "Title")
+
+# load the skill name from the skills table
+skill_list <- sqlQuery(con, "select skill_id, sc_id, skill_name as Skill from skills", 
+                       stringsAsFactors = FALSE)
+
+# colnames(skill_list) <- c("Skill")
+```
+
+
+```{r}
+##################################################################
+# Main part of program
+##################################################################
+
+d <- data.frame(doc_id=0, Skill_id=0, ds_freq=0, stringsAsFactors = FALSE)
+
+for (eachURL in URL_list$WebpageURL){
+    URL_raw<- htmlParse(getURL(eachURL, followlocation = TRUE), asText = T)
+    URL_clean <- xpathSApply(URL_raw, "//text()[not(ancestor::script)] [not(ancestor::style)] [not(ancestor::noscript)] [not(ancestor::form)]", xmlValue)
+    URL_clean = paste(URL_clean, collapse = "\n")
+
+    for (eachskill in skill_list$Skill) {
+        d <- rbind(d, c(URL_list[URL_list$WebpageURL==eachURL,1], skill_list[skill_list$Skill==eachskill,1],
+                        str_count(tolower(URL_clean), paste0("\\b", tolower(eachskill), "\\b"))))        
+
+    }
+}
+
+kable(d)
+```
+
+
+```{r, warning=FALSE}
+##################################################################
+# Code chunk for loading results into appropriate tables in R
+##################################################################
+
+# now load each item from the 'd' data frame into the ds_skills database
+# NOTE: first row of data frame appears to be blank for some reason so it is skipped
+for(i in 2:nrow(d)) {
+  
+  # now perform the INSERT
+  sql_stmt <- sprintf("INSERT INTO doc_skills (doc_id, skill_id, ds_freq ) VALUES (%i, %i, %i)",
+                      d$doc_id[i], d$Skill_id[i], d$ds_freq[i])
+  
+  sqlQuery(con, sql_stmt)
+}
+
+
+# now do a validation check on the results of the inserts
+url_df <- sqlQuery(con, 'Call Build_URL_DataFrame')
+head(url_df)
+
+# close ODBC connection
+odbcClose(con)
+  

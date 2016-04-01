@@ -1,0 +1,239 @@
+---
+title: "Term-Document Matrix Data Collection Process"
+author: "CUNY 607 Project 3 / Group 2 Project Team (Logan Thomson, Dan Smilowitz, Chris Martin)"
+date: "March 27, 2016"
+output: html_document
+---
+
+__IMPORTANT__
+This R code requires the following packages to have been pre-installed within your R environment:
+
+- RMySQL
+- RCurl
+- RWeka
+- XML
+- tm
+- stringr
+- SnowballC
+- RTextTools
+- topicmodels
+- tidyr
+- dplyr
+
+Failure to have any of these packages pre-installed within your local R environment will prevent this R code from functioning properly.
+
+###Load Packages  
+```{r, message=FALSE, results='hide'}
+packages <- c("RMySQL", "RCurl", "XML", "stringr", "tm", "SnowballC", "RTextTools", "topicmodels", "tidyr", "dplyr")
+
+lapply(packages, library, character.only = TRUE)
+```
+
+###Connect to MySQL Database  
+
+This process uses `RMySQL` commands. To connect using `RODBC`, you will need to change the connection method and update `dbGetQuery` to `sqlQuery`. The SQL scripts should remain the same. 
+
+__IMPORTANT!!!__
+
+__ Be sure to se the 'user', 'password', and 'host' variables to match those of your own local MySQL Server configuration. Failure to do so will prevent this code from functioning properly.__
+
+```{r}
+drv <- dbDriver('MySQL')
+con <- dbConnect(drv, user="root", password="sqlroot", dbname = "ds_skills",
+                 host = "localhost")
+
+webpages  <- dbGetQuery(con, "SELECT doc_path, doc_title FROM documents")
+colnames(webpages) <- c("WebpageURL", "Title")
+
+dbDisconnect(con)
+```
+
+###Create Folder for Storing HTML Data  
+
+To ensure reproducability, the following will set the working directory, and create a folder there to store the downloaded html data locally.  If the directory exists, this step will be skipped.  
+
+```{r}
+mainDir <- getwd()
+newDir <- "/Webpages"
+subDir <- sprintf(paste(mainDir, newDir, sep=""))
+
+ifelse(!dir.exists(file.path(subDir)), dir.create(file.path(subDir)), FALSE)
+```
+
+###Store All Webpage Data  
+
+The following code will store the two columns `WebpageURL` and `Title` from the "webpages" data frame into two objects to later be used for metadata for our corpus of terms.  
+
+```{r}
+all_links <- webpages$WebpageURL
+all_titles <- webpages$Title
+
+# Download webpage data
+for(i in 1:length(all_links)){
+  url <- all_links[i]
+  tmp <- getURL(url)
+  write(tmp, str_c("./Webpages/", i, ".html"))
+}
+```
+
+Now that the html data is saved, we can test reading, storing, and parsing one of the webpages into our corpus, which is another term for a collection of text.  Since the structure of each webpage is different (classes, tag names, etc.), we will just parse the "body" tag of each webpage.
+
+```{r}
+# Get first webpage
+tmp <- readLines("./Webpages/1.html")
+tmp <- str_c(tmp, collapse = "")
+tmp <- htmlParse(tmp)
+
+# webpage structures different - read whole body and title
+webpage <- xpathSApply(tmp, "//body", xmlValue)
+
+# Create corpus
+webpage_corpus <- Corpus(VectorSource(webpage))
+
+# Set meta information
+meta(webpage_corpus[[1]], "heading") <- all_titles[1]
+meta(webpage_corpus[[1]], "origin") <- all_links[1]
+```
+
+Since the test worked, we will parse through the remaining lines of our downloaded webpages and then apply that parsed text to our already-created corpus. 
+
+```{r}
+n <- 1
+
+for(i in 2:length(list.files("./Webpages/"))){
+  
+  tmp <- readLines(str_c("./Webpages/", i, ".html"))
+  tmp <- str_c(tmp, collapse = "")
+  
+  # added if statement below to protect against failed download
+  
+  if(str_length(tmp) > 0) {
+    
+    tmp <- htmlParse(tmp)
+    webpage <- xpathSApply(tmp, "//body", xmlValue)
+    if(length(webpage) != 0){
+      
+      page_title <- xpathSApply(tmp, "//head/title", xmlValue)
+      n <- n + 1
+      tmp_corpus <- Corpus(VectorSource(webpage))
+      webpage_corpus <- c(webpage_corpus, tmp_corpus)
+      meta(webpage_corpus[[n]], "heading") <- all_titles[i]
+      meta(webpage_corpus[[n]], "origin") <- all_links[i]
+    }
+  }
+}
+```
+
+###Creating the "Term Document Matrix"  
+
+The corpus created above is simply a collection of all of the text parsed from every single webpage. This corpus contains thousands of words (basically what boils down to groups of characters). To make sense of it, we can make a "term document matrix", which is a special matrix containing the documents, terms, and the counts of each term/word in each document.  
+
+We first create a "tokenizer", which will define terms by finding words that appear together (i.e. "Data Scientist"). To cut down on other common phrases, we have limited the tokenizer to a maximum of 2 words.  With the tokenizer initialized, this will be passed into the `TermDocumentMatrix` fucntion from the `tm` pacakge as one of several parameters.  
+
+The `TermDocumentMatrix` function will go through the entire corpus we created (this will take a moment) and look for the common "bigrams" that appear, as well as any other terms. We have also passed other parameters into the fucntion to remove punctuation, numbers, convert characters to lower-case, strip whitespace (especially from the bi-grams), and limit words to lengths between 1 and 15 characters.  Another paramter passed through is the "stopwords" parameter, which is a collection of common words ("there", "was", etc.) that will not be included in the resulting matrix.  
+
+Now that the term document matrix is created, it is stored in the `tdm_ngram` object. We then use the `removSparseTerms` function to take out any terms that do not appear in a certain percent of the total documents.  This function can be passed a decimal between 1 and 0, with smaller decimals being more selective. Values closer to 1 yielded too many common terms, so .8 was arrived at through experimentation and reviewing the results.  
+
+```{r}
+
+# If you have issues with the "BigramTokenizer" function below, uncomment the command on the next line
+options(mc.cores = 1)
+
+BigramTokenizer <- function(x) {RWeka::NGramTokenizer(x, RWeka::Weka_control(min = 1, max = 2))}
+
+tdm_ngram <- TermDocumentMatrix(webpage_corpus,
+                                 control = list(tokenize = BigramTokenizer,
+                                                removePunctuation = TRUE,
+                                                removeNumbers = TRUE,
+                                                stopwords = TRUE,
+                                                tolower = TRUE,
+                                                stripWhitespace = TRUE,
+                                                wordLengths = c(1, 15)))
+
+tdm_ngram <- removeSparseTerms(tdm_ngram, 0.8)
+```
+
+###Create a Data Frame from the "TDM"  
+
+With the term document matrix set. We need to turn this into a format that will work well with being sent back to our MySQL database. First we turn the tdm_ngram object into a matrix, and then a dataframe. The rest of the operations are to change the row and column names, remove empty strings, and transform the data frame to the appropriate format for reading into our data base.  
+
+```{r}
+# convert tdm_ngram to data frame
+tdm_ngram.matrix <- as.matrix(tdm_ngram)
+
+tdm_ngram.df <- as.data.frame(t(t(tdm_ngram.matrix)))
+tdm_ngram.df$skill <- rownames(tdm_ngram.df)
+rownames(tdm_ngram.df) <- 1:nrow(tdm_ngram.df)
+
+# change colnames to webpage numbers
+included_pages <- meta(webpage_corpus[[1]], "origin")
+
+for(n in 2:length(webpage_corpus)) {
+  
+  included_pages <- c(included_pages, meta(webpage_corpus[[n]], "origin"))
+}
+
+colnames(tdm_ngram.df) <- c(included_pages[1:length(webpage_corpus)], "skill")
+
+# Remove empty strings - these will throw errors when inserting into MySQL
+tdm_ngram.df <- tdm_ngram.df[!(is.na(tdm_ngram.df$skill) | tdm_ngram.df$skill == " "), ]
+
+# gather to proper format
+tdm_ngram.df <- tdm_ngram.df %>% 
+  gather(webpage, count, -skill) %>%
+  select(webpage, skill, count) %>%
+  arrange(desc(count))
+```
+
+If you would like to preview the data created, "un-comment" the following code.  
+
+```{r}
+# View a preview of the returned data (uncomment the following commands)
+# Test <- tdm_ngram.df %>% group_by(skill) %>% tally(count, sort=TRUE)
+# View(Test)
+```
+
+###Inserting Results into MySQL
+
+```{r}
+# Insert results into MySQL
+
+drv <- dbDriver('MySQL')
+con <- dbConnect(drv, user="root", password="sqlroot", dbname = "ds_skills",
+                 host = "localhost")
+
+# get unique values from 'skills' column of data frame
+unique_skills <- unique(tdm_ngram.df$skill)
+unique_skills <- unique_skills[1:length(unique_skills)]
+
+# Load all term names / skills into td_terms table
+for(i in 1:length(unique_skills)) {
+
+  # format SQL INSERT statement
+  sql_stmt <- sprintf("INSERT IGNORE INTO td_terms (term_name) VALUES ('%s')",unique_skills[i])
+
+  # execute SQL statement
+  dbGetQuery(con, sql_stmt)
+}
+
+# now load unique IDs for each item from the 'tdm_ngram.df' data frame into the doc_terms table
+for(i in 1:nrow(tdm_ngram.df)) {
+
+  # construct doc_id query string using sprintf
+  sql_stmt <- sprintf("SELECT doc_id FROM documents WHERE doc_path = '%s'", tdm_ngram.df$webpage[i])
+  docID <- as.numeric(dbGetQuery(con, sql_stmt))
+
+  # construct term_id query string using sprintf
+  sql_stmt <- sprintf("SELECT term_id FROM td_terms WHERE term_name =  '%s'", tdm_ngram.df$skill[i])
+  term_ID <- as.numeric(dbGetQuery(con, sql_stmt))
+
+  # now perform the INSERT into the doc_terms table (facilitates many-to-many relationship 
+  #                                                  betw docs & skills)
+  sql_stmt <- sprintf("INSERT INTO doc_terms (doc_id, term_id, dt_freq ) VALUES (%i, %i, %i)",
+                      docID, term_ID, tdm_ngram.df$count[i])
+
+  dbGetQuery(con, sql_stmt)
+}
+
+dbDisconnect(con)
+```
