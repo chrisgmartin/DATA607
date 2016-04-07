@@ -16,21 +16,45 @@ output:
 
 Emails: one of the most useful communication tools available to everyone with an internet connection. Unfortunately, everyone with an internet connection can use it, including robots. Our goal in this exercize is to identify the "good" emails (**ham**) from the "bad" (**spam**--which is actually quite tasty sometimes) using sets of already identified emails (our "training" documents), and "predict" whether or not a new document is spam.
 
-So let's start by loading our necessary packages. I'm using a new (for me) package called *pacman* to load the libraries. It seems an easier way to install and load multiple packages at the same time[1], and anything that saves Data Scientists' time is worth investigating.
+So let's start by loading our necessary packages. I'm using a new (for me) package called *pacman* to load the libraries. The [pacman package](https://cran.r-project.org/web/packages/pacman/vignettes/Introduction_to_pacman.html) seems like an easier way to install and load multiple packages at the same time[1], and anything that saves Data Scientists' time is worth investigating.
 
 ```{r}
-pacman::p_load(knitr, tm, RTextTools)
+pacman::p_load(knitr, tm, RTextTools, plyr, dplyr)
+```
+
+##Data Collection
+
+For the collection of data, I'm using the corpus from [Spam Assassin](https://spamassassin.apache.org/publiccorpus/) on February 28, 2003. I've downloaded all 5 of the these packages locally which includes 2 Easy Ham sets, 1 Hard Ham set, and 2 Spam sets. These local files were then uploaded to my GitHub page for reproducability. For now, I'll ignore the Hard Ham set, which I will come back to when time allows, and focus on the 2 Easy Ham sets and the 2 Spam sets. I'll use the initial sets for both Ham and Spam as our training documents, and use the 2nd Ham and Spam sets to see how well our filter works. So let's start by loading the two training documents:
+
+```{r}
+
+
+getham1URLs <- function(folder) {
+  pages_parsed <- lapply(str_c(folder, "/", ))
+}
+ham1 <- 
+  
+  
+  
+spam1 <- 
+
 ```
 
 
 
+setwd("C:/Users/itsal/Documents/CUNY MSDA/DATA607 - Data Acquisition and Management/11 - Text Mining/Assignment 11")
+
+
+Download the files:
+"C:/Users/itsal/Documents/CUNY MSDA/DATA607 - Data Acquisition and Management/11 - Text Mining/Assignment 11"
+
+fn1 <- "https://spamassassin.apache.org/publiccorpus/20030228_easy_ham.tar.bz2"
+download.file(fn1,destfile="easy_ham")
+untar("easy_ham",list=TRUE)
+
+fn2 <- "https://spamassassin.apache.org/publiccorpus/spam.tar.bz2"
+download.file(fn2,destfile="spam")
+untar("spam",list=TRUE)
 
 
 
-
-
-
-
-
-
-[1] more information on pacman can be found here: https://cran.r-project.org/web/packages/pacman/vignettes/Introduction_to_pacman.html
