@@ -1,0 +1,140 @@
+---
+title: "DATA607 - Assignment 11 - Spam or Ham"
+author: "Chris G. Martin"
+date: "April 8, 2016"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: cerulean
+    highlight: kate
+---
+
+#SPAM or HAM
+
+##Overview
+
+Emails: one of the most useful communication tools available to everyone with an internet connection. Unfortunately, everyone with an internet connection can use it, including robots. Our goal in this exercize is to identify the "good" emails (**ham**) from the "bad" (**spam**--which is actually quite tasty sometimes) using sets of already identified emails (our "training" documents), and "predict" whether or not a new document is spam.
+
+So let's start by loading our necessary packages. I'm using a new (for me) package called *pacman* to load the libraries. The [pacman package](https://cran.r-project.org/web/packages/pacman/vignettes/Introduction_to_pacman.html) seems like an easier way to install and load multiple packages at the same time[1], and anything that saves Data Scientists' time is worth investigating.
+
+```{r}
+pacman::p_load(knitr, tm, RTextTools)
+```
+
+##Data Collections
+
+For the collection of data, I'm using the corpus from [Spam Assassin](https://spamassassin.apache.org/publiccorpus/) on February 28, 2003. I've downloaded all 5 of the these packages locally (in the folder *'C:/Users/cgmartin/Documents/CUNY MSDA/Assignments/A11'*) which includes 2 Easy Ham sets, 1 Hard Ham set, and 2 Spam sets. These local files were then uploaded to my GitHub page for reproducability. For now, I'll ignore the Hard Ham set, which I will come back to when time allows, and focus on the 2 Easy Ham sets and the 2 Spam sets. I'll use the initial sets for both Ham and Spam as our training documents, and use the 2nd Ham and Spam sets to see how well our filter works. So let's start by loading the two training documents.
+
+###Setting Appropriate Folders
+
+We'll start by setting some values for our working drive. This will make it easier going forward (trust me, you don't want to have to type C:/Users/XXXXX everytime you need to grab something from a local file).
+
+```{r}
+#set wd to our appropriate working directory
+wd <- 'C:/Users/cgmartin/Documents/CUNY MSDA/Assignments/A11'
+
+#set a name to each folder
+easy_ham <- '/easy_ham'
+easy_ham_2 <- '/easy_ham_2'
+spam <- '/spam'
+spam_2 <- '/spam_2'
+```
+
+###Creating the Corpora
+
+To create the corpus for each set (4 in total, with the hard_ham kept aside for now), we will first need to gather all of the files from each set -- which we had already extracted into their own local folder -- into a list. Since the texts contain a lot of challenging items such as punctuation, numbers, and stop-words (who, that, etc.) we'll need to remove those and perform some formating changes to use the word stems and change upper case words to lower case words. Building a function to perform all of those at once makes our lives much easier. The third line is likely to be the most confusing: it essentially creates a corpus by [1] finding the data in the directory: *location*, [2] encodes the data in UTF-8, [3] reads the data in Plain Text, and [4] reads the Plain Text in English.
+
+```{r}
+gather_files <- function(maindir, folder){
+  location <- paste0(maindir, folder)
+  corpus <- VCorpus(DirSource(location, encoding = 'UTF-8'), readerControl = list(reader = readPlain, language = 'en'))
+  corpus <- tm_map(corpus, removeNumbers)
+  corpus <- tm_map(corpus, stemDocument)
+  corpus <- tm_map(corpus, removePunctuation)
+  corpus <- tm_map(corpus, removeWords, stopwords('english'))
+  corpus <- tm_map(corpus, PlainTextDocument)
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus
+}
+```
+
+With our function ready, we just need to pass each of the sets through the function and create our corpora:
+
+```{r}
+corpus_eh1 <- gather_files(wd, easy_ham)
+corpus_eh2 <- gather_files(wd, easy_ham_2)
+corpus_s1 <- gather_files(wd, spam)
+corpus_s2 <- gather_files(wd, spam_2)
+```
+
+
+###Checking the Corpora
+
+We've got our corpora (love that word), so let's check to see if it worked:
+
+```{r}
+kable(head(corpus_eh1[[1]]))
+kable(head(corpus_s2[[1]]))
+```
+
+##Data Connections
+
+Super fantastic: data has been successfully collected and a corpus created for each set. We now need to properly label the data using **meta data** and create a **term document matrix** from the texts before we can move on to the testing phase.
+
+###Adding Meta Data
+
+Simply enough, we want to label the data with a 
+
+```{r}
+
+```
+
+
+
+
+02177.271ffe8f601916de07520b23fe0d0921
+
+setwd("C:/Users/itsal/Documents/CUNY MSDA/DATA607 - Data Acquisition and Management/11 - Text Mining/Assignment 11")
+setwd("C:/Users/cgmartin/Documents/CUNY MSDA/Assignments/A11")
+
+http://rpubs.com/cyadusha/spamham
+https://cran.r-project.org/web/packages/tm/vignettes/tm.pdf
+
+
+
+
+Download the files:
+"C:/Users/itsal/Documents/CUNY MSDA/DATA607 - Data Acquisition and Management/11 - Text Mining/Assignment 11"
+
+fn1 <- "https://spamassassin.apache.org/publiccorpus/20030228_easy_ham.tar.bz2"
+download.file(fn1,destfile="easy_ham")
+untar("easy_ham",list=TRUE)
+
+fn2 <- "https://spamassassin.apache.org/publiccorpus/spam.tar.bz2"
+download.file(fn2,destfile="spam")
+untar("spam",list=TRUE)
+
+
+
+
+
+
+
+
+
+```
+#ORIGINAL WAY ( THIS WAY WORKS)
+gather_files <- function(maindir, folder){
+  location <- paste0(maindir, folder)
+  files <- DirSource(location, encoding = 'UTF-8', recursive = 'TRUE')
+  corpus <- Corpus(files, readerControl = list(reader = readPlain, language = 'en'))
+  corpus <- tm_map(corpus, removeNumbers)
+  corpus <- tm_map(corpus, stemDocument)
+  corpus <- tm_map(corpus, removePunctuation)
+  corpus <- tm_map(corpus, removeWords, stopwords('en'))
+  corpus <- tm_map(corpus, PlainTextDocument)
+  corpus <- tm_map(corpus, tolower)
+  corpus
+}
+```
