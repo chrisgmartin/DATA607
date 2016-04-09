@@ -19,7 +19,8 @@ Emails: one of the most useful communication tools available to everyone with an
 So let's start by loading our necessary packages. I'm using a new (for me) package called *pacman* to load the libraries. The [pacman package](https://cran.r-project.org/web/packages/pacman/vignettes/Introduction_to_pacman.html) seems like an easier way to install and load multiple packages at the same time[1], and anything that saves Data Scientists' time is worth investigating.
 
 ```{r}
-pacman::p_load(knitr, tm, RTextTools)
+#install.packages('pacman')
+pacman::p_load(knitr, tm, RTextTools, stringr)
 ```
 
 ##Data Collections
@@ -32,7 +33,7 @@ We'll start by setting some values for our working drive. This will make it easi
 
 ```{r}
 #set wd to our appropriate working directory
-wd <- 'C:/Users/cgmartin/Documents/CUNY MSDA/Assignments/A11'
+wd <- "C:/Users/itsal/Documents/GitHub/DATA607/Assignment 11"
 
 #set a name to each folder
 easy_ham <- '/easy_ham'
@@ -43,19 +44,13 @@ spam_2 <- '/spam_2'
 
 ###Creating the Corpora
 
-To create the corpus for each set (4 in total, with the hard_ham kept aside for now), we will first need to gather all of the files from each set -- which we had already extracted into their own local folder -- into a list. Since the texts contain a lot of challenging items such as punctuation, numbers, and stop-words (who, that, etc.) we'll need to remove those and perform some formating changes to use the word stems and change upper case words to lower case words. Building a function to perform all of those at once makes our lives much easier. The third line is likely to be the most confusing: it essentially creates a corpus by [1] finding the data in the directory: *location*, [2] encodes the data in UTF-8, [3] reads the data in Plain Text, and [4] reads the Plain Text in English.
+To create the corpus for each set (4 in total, with the hard_ham kept aside for now), we will first need to gather all of the files from each set -- which we had already extracted into their own local folder -- into a list. Building a function to perform all of those at once makes our lives much easier. The third line is likely to be the most confusing: it essentially creates a corpus by [1] finding the data in the directory: *location*, [2] encodes the data in UTF-8, [3] reads the data in Plain Text, and [4] reads the Plain Text in English.
 
 ```{r}
 gather_files <- function(maindir, folder){
   location <- paste0(maindir, folder)
   corpus <- VCorpus(DirSource(location, encoding = 'UTF-8'), readerControl = list(reader = readPlain, language = 'en'))
-  corpus <- tm_map(corpus, removeNumbers)
-  corpus <- tm_map(corpus, stemDocument)
-  corpus <- tm_map(corpus, removePunctuation)
-  corpus <- tm_map(corpus, removeWords, stopwords('english'))
   corpus <- tm_map(corpus, PlainTextDocument)
-  corpus <- tm_map(corpus, content_transformer(tolower))
-  corpus
 }
 ```
 
@@ -69,26 +64,163 @@ corpus_s2 <- gather_files(wd, spam_2)
 ```
 
 
-###Checking the Corpora
+###Checking the Corpora part 1
+
+We've got our corpora, so let's check to see if it worked:
+
+```{r}
+inspect(corpus_eh1[1:2])
+inspect(corpus_s2[1:2])
+```
+
+###Adding Meta Data
+
+Simply enough, we want to label the data with a indicator for if it's a spam email or a ham email. There are several meta data categories as default, and we can run this to see what the current meta data we have on the documents in the corpora is:
+
+```{r}
+#see the meta for the corpus
+meta(corpus_eh1[1])
+#see the meta for the individual documents
+meta(corpus_eh1[[1]])
+```
+
+We have no meta data, so we'll need to set it ourselves:
+
+```{r}
+meta(corpus_eh1, tag = "type") <- "ham"
+meta(corpus_eh2, tag = "type") <- "ham"
+meta(corpus_s1, tag = "type") <- "spam"
+meta(corpus_s2, tag = "type") <- "spam"
+```
+
+```{r}
+meta(corpus_eh1[1])
+meta(corpus_s1[1])
+```
+
+
+###More Meta Data
+
+There's even more meta data we can grab directly from each email. Namely we'd like to have the sender, who it's directed to, the date of the email, and the subject of the email.
+
+```{r}
+#I couldn't get this function to properly run so it's closed for now
+#Everything is pulling correctly, but the meta data wasn't being added
+#add_md <- function(corpus) {
+#  for (i in seq(from = 1, to = length(corpus), by = 1)) {
+#    meta(corpus[[i]], "From") <- cat(str_replace_na(str_extract(corpus_eh1[[1]], "^(From: )[[:alnum:][:digit:]: ,.@+<>-]+"), ""), sep = "")
+#    meta(corpus[[i]], "To") <- cat(str_replace_na(str_extract(corpus_eh1[[1]], "^(To: )[[:alnum:][:digit:]: .@+<>-]+"), ""), sep = "")
+#    meta(corpus[[i]], "date") <- cat(str_replace_na(str_extract(corpus_eh1[[1]], "^(Date: )[[:alnum:][:digit:]: ,.@+<>-]+"), ""), sep = "")
+#    meta(corpus_eh1[[i]], "Subject") <- cat(str_replace_na(str_extract(corpus_eh1[[i]], "Subject: [[:alnum:]: +]?+"), ""), sep = "")
+#  }
+#}
+
+
+#add_md(corpus_eh1)
+#meta(corpus_eh1[1])
+#meta(corpus_eh1[[1]])
+
+```
+
+###Cleaning the Corpora
+
+After our meta data is retrieved, we want to remove all of the nonsense text from the messages. It seems that in each text there is a lot of data at the top, then a line space, followed by (typically) the context of the message. It's the context that we'll want to use in our Term Document Matrix so we want to remove all the rows before the line space.
+
+```{r}
+#find_body <- function(corpus){
+#  for (i in seq(from = 1, to = length(corpus), by = 1)) {
+    
+#  }
+
+#}
+  
+
+```
+
+###More Cleaning
+
+Since the texts also contain a lot of challenging items such as punctuation, numbers, stop-words (who, that, etc.), and white space (unncessary blank lines and extra space) we'll need to remove those and perform some formating changes to use the word stems and change upper case words to lower case words:
+
+```{r}
+clean_files <- function(corpus){
+  corpus <- tm_map(corpus, removeNumbers)
+  corpus <- tm_map(corpus, removePunctuation)
+  corpus <- tm_map(corpus, removeWords, stopwords('english'))
+  corpus <- tm_map(corpus, stemDocument)
+  corpus <- tm_map(corpus, PlainTextDocument)
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, stripWhitespace)
+  corpus
+}
+
+corpus_eh1 <- clean_files(corpus_eh1)
+corpus_eh2 <- clean_files(corpus_eh2)
+corpus_s1 <- clean_files(corpus_s1)
+corpus_s2 <- clean_files(corpus_s2)
+```
+
+###Checking the Corpora part 2
 
 We've got our corpora (love that word), so let's check to see if it worked:
 
 ```{r}
-kable(head(corpus_eh1[[1]]))
-kable(head(corpus_s2[[1]]))
+inspect(corpus_eh1[1:2])
+inspect(corpus_s2[1:2])
+meta(corpus_eh1[[1]])
+meta(corpus_eh1[1])
 ```
 
 ##Data Connections
 
-Super fantastic: data has been successfully collected and a corpus created for each set. We now need to properly label the data using **meta data** and create a **term document matrix** from the texts before we can move on to the testing phase.
+Super fantastic: data has been successfully collected and a corpus created for each set, added in meta data, and cleaned the documents. We now need to properly connect the data using a **term document matrix** or **document term matrix8** from the texts before we can move on to the testing phase, **combine the two testing corpora** (*easy ham 1* and *spam 1*) into one corpus and TDM/DTM, and **remove sparse words**.
 
-###Adding Meta Data
+###Creating the Term Document Matrix
 
-Simply enough, we want to label the data with a 
+The Term Document Matrix (**TDM**) will analyse the data (the remaining word terms) and give a count for each time the term is used. The TDM will pass through each document, giving a frequency count for each term, and place each result in a single matrix. This matrix can then be used for analysis.
 
 ```{r}
+tdm_eh1 <- TermDocumentMatrix(corpus_eh1)
+tdm_eh2 <- TermDocumentMatrix(corpus_eh2)
+tdm_s1 <- TermDocumentMatrix(corpus_s1)
+tdm_s2 <- TermDocumentMatrix(corpus_s2)
+tdm_eh1
 
 ```
+
+###Creating the Documenet Term Matrix
+
+Basically just a transposition of the TDM, the Document Term Matrix (**DTM**) can also be created simply:
+
+```{r}
+dtm_eh1 <- DocumentTermMatrix(corpus_eh1)
+dtm_eh2 <- DocumentTermMatrix(corpus_eh2)
+dtm_s1 <- DocumentTermMatrix(corpus_s1)
+dtm_s2 <- DocumentTermMatrix(corpus_s2)
+dtm_eh1
+```
+
+
+###Remove Sparse Terms
+
+If we were to see the full TDM or DTM we would see that this are several sparsely used terms that had been only used once or twice. These terms can be a bottleneck in processing and analysis, so it shouldn't be too much of an issue to remove them:
+
+```{r}
+tdm_eh1 <- removeSparseTerms(tdm_eh1, 0.2)
+tdm_eh2 <- removeSparseTerms(tdm_eh2, 0.2)
+tdm_s1 <- removeSparseTerms(tdm_s1, 0.2)
+tdm_s2 <- removeSparseTerms(tdm_s2, 0.2)
+```
+
+##Data Correlations
+
+To recollect: [1] We gathered and cleaned all of our data into copora, we then [2] created a TDM and DTM out of those copora. In the cleaning phase we [1] added meta data, [2] removed punctuation, stop words, symbols, and white space, [3] converted words to their easier to use stems, and [5] lowercased all terms. In the connecting phase we [1] created a TDM and DTM of the copora, [2] removed sparse terms, and [3] combined the two testing corpora into one larger corpora with its own TDM/DTM. We now move on to the analysis page and see what the data tells us. For this, we'll **find frequent terms**, see a cool **word cloud**, 
+
+```{r}
+findFreqTerms(tdm_eh1, 100)
+
+```
+
+
 
 
 
@@ -96,7 +228,12 @@ Simply enough, we want to label the data with a
 02177.271ffe8f601916de07520b23fe0d0921
 
 setwd("C:/Users/itsal/Documents/CUNY MSDA/DATA607 - Data Acquisition and Management/11 - Text Mining/Assignment 11")
+
 setwd("C:/Users/cgmartin/Documents/CUNY MSDA/Assignments/A11")
+wd <- 'C:/Users/cgmartin/Documents/CUNY MSDA/Assignments/A11'
+
+setwd("C:/Users/itsal/Documents/GitHub/DATA607/Assignment 11")
+wd <- "C:/Users/itsal/Documents/GitHub/DATA607/Assignment 11"
 
 http://rpubs.com/cyadusha/spamham
 https://cran.r-project.org/web/packages/tm/vignettes/tm.pdf
