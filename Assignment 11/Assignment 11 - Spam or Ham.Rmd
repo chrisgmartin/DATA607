@@ -1,0 +1,385 @@
+---
+title: "DATA607 - Assignment 11 - Spam or Ham"
+author: "Chris G. Martin"
+date: "April 9, 2016"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: cerulean
+    highlight: kate
+---
+
+#SPAM or HAM
+
+##Overview
+
+Emails: one of the most useful communication tools available to everyone with an internet connection. Unfortunately, everyone with an internet connection can use it, including robots. Our goal in this exercize is to identify the "good" emails (**ham**) from the "bad" (**spam**--which is actually quite tasty sometimes) using sets of already identified emails (our **"training" documents**), and "predict" whether or not a new document is spam (our **"testing documents"**).
+
+So let's start by loading our necessary packages. I'm using a new (for me) package called *pacman* to load the libraries. The [pacman package](https://cran.r-project.org/web/packages/pacman/vignettes/Introduction_to_pacman.html) seems like an easier way to install and load multiple packages at the same time, and anything that saves Data Scientists' time is worth investigating.
+
+```{r}
+#install.packages('pacman')
+pacman::p_load(knitr, tm, RTextTools, stringr, wordcloud)
+```
+
+##Data Collections
+
+For the collection of data, I'm using the corpus from [Spam Assassin](https://spamassassin.apache.org/publiccorpus/) on February 28, 2003. I've downloaded all 5 of the these packages locally (in the folder *'C:/Users/itsal/Documents/GitHub/DATA607/Assignment 11'*) which includes 2 Easy Ham sets, 1 Hard Ham set, and 2 Spam sets. These local files were also uploaded to my GitHub page for reproducability. For now, I'll ignore the Hard Ham set, which I can come back to when time allows, and focus on the 2 Easy Ham sets and the 2 Spam sets. I'll use the initial sets for both Ham and Spam as our **training documents**, and use the 2nd Ham and Spam sets to see how well our filter works as our **test documents**. So let's start by loading them all.
+
+###Setting Appropriate Folders
+
+We'll start by setting some values for our working drive. This will make it easier going forward (trust me, you don't want to have to type C:/Users/XXXXX everytime you need to grab something from a local file).
+
+```{r}
+#set wd to our appropriate working directory
+wd <- "C:/Users/itsal/Documents/GitHub/DATA607/Assignment 11"
+
+#set a name to each folder
+easy_ham <- '/easy_ham'
+easy_ham_2 <- '/easy_ham_2'
+spam <- '/spam'
+spam_2 <- '/spam_2'
+```
+
+###Gathering the Data
+
+Now we need to find the names of all of the files in each set:
+
+```{r}
+ham_names <- list.files(sprintf("%s%s", wd, easy_ham))
+ham2_names <- list.files(sprintf("%s%s", wd, easy_ham_2))
+spam_names <- list.files(sprintf("%s%s", wd, spam))
+spam2_names <- list.files(sprintf("%s%s", wd, spam_2))
+
+head(ham_names)
+```
+
+Then using these names, we'll create a list of each of the files. These files create the basis of our corpus.
+
+```{r}
+ham_files <- sprintf("%s%s/%s", wd, easy_ham, ham_names)
+ham2_files <- sprintf("%s%s/%s", wd, easy_ham_2, ham2_names)
+spam_files <- sprintf("%s%s/%s", wd, spam, spam_names)
+spam2_files <- sprintf("%s%s/%s", wd, spam_2, spam2_names)
+
+head(ham_files)
+```
+
+###Initial Corpus Set-Up
+
+As a set-up for our corpus, we will use the first file of the first Ham folder and make sure everything can get established correctly. To do this, we'll [1] **pull in all of the text** of each file in one line, [2] **set the corpus**, and [3] add the appropriate **meta data**.
+
+####Reading the Text
+
+First we'll start by pulling in all of the texts from each document. Since we don't care about the added white space (we'll remove it later) we can simply use the *stringr* package to gather all of the lines together and save the text as a temporary list.
+
+```{r}
+  tmp <- readLines(ham_files[1])
+  tmp <- str_c(tmp, collapse = " ")
+```
+
+####Set the Corpus
+
+Using our temporary list, we set the corpus: **main_corpus**
+
+```{r}
+  main_corpus <- Corpus(VectorSource(tmp))
+```
+
+####Adding Meta Data
+
+With the corpus ready, we'll add meta data which could help us in the analysis later on. Namely, we need to know the [1] file name, [2] **type** (ham or spam), [3] **From** (who the email is from), [4] **To** (who the email is directed to), [5] **Date** of the email, [6] **Subject** of the email. We may not dig into those, but it could be useful to have.
+
+```{r}
+  meta(main_corpus[[1]], "filename") <- ham_names[1]
+  meta(main_corpus[[1]], "type") <- "Ham"
+  meta(main_corpus[[1]], "From") <- na.omit(str_extract(readLines(ham_files[1]), "^(From: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+  meta(main_corpus[[1]], "To") <- na.omit(str_extract(readLines(ham_files[1]), "^(To: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+  meta(main_corpus[[1]], "Date") <- na.omit(str_extract(readLines(ham_files[1]), "^(Date: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+  meta(main_corpus[[1]], "Subject") <- na.omit(str_extract(readLines(ham_files[1]), "^(Subject: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+```
+
+####Check the Corpus
+
+It's usually a good idea to check the corpus to make sure it's all running correctly, this includes looking at meta data.
+
+```{r}
+ham_files[2]
+meta(main_corpus[[1]])
+```
+
+###Adding All Documents
+
+With our corpus set-up and ready in-hand we'll need to do that for each of the documents both spam and ham sets. We'll [1] set the **First Ham** set, then [2] add the **First Spam** set, followed by [3] **Second Ham** and [4] **Second Spam** sets.
+
+####First Ham
+
+Combining all of the corpus functions together, we have our function ready:
+
+```{r}
+for(i in 2:length(ham_names)){
+  tmp <- readLines(ham_files[i])
+  tmp <- str_c(tmp, collapse = " ")
+  
+  tmp_corpus <- Corpus(VectorSource(tmp))
+  main_corpus <- c(main_corpus, tmp_corpus)
+    
+  meta(main_corpus[[i]], "filename") <- ham_names[i]
+  meta(main_corpus[[i]], "type") <- "Ham"
+  
+   meta(main_corpus[[i]], "From") <- na.omit(str_extract(readLines(ham_files[i]), "^(From: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[i]], "To") <- na.omit(str_extract(readLines(ham_files[i]), "^(To: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[i]], "Date") <- na.omit(str_extract(readLines(ham_files[i]), "^(Date: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[i]], "Subject") <- na.omit(str_extract(readLines(ham_files[i]), "^(Subject: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+}
+
+main_corpus
+meta(main_corpus[[3]])
+```
+
+The Ham file had 2501 documents, so this checks out
+
+####First Spam
+
+It looks like our corpus and meta data are correctly gathered, so we'll now need to add our spam data. We need to specify a new item **k** so that we don't overwrite our ham files, so that's the first important step followed by the function for the spam set:
+
+```{r}
+k <- length(ham_files)
+
+for(i in 1:length(spam_names)){
+  tmp <- readLines(spam_files[i])
+  tmp <- str_c(tmp, collapse = " ")
+  
+  tmp_corpus <- Corpus(VectorSource(tmp))
+  main_corpus <- c(main_corpus, tmp_corpus)
+    
+  meta(main_corpus[[k+i]], "filename") <- spam_names[i]
+  meta(main_corpus[[k+i]], "type") <- "Spam"
+  
+   meta(main_corpus[[k+i]], "From") <- na.omit(str_extract(readLines(spam_files[i]), "^(From: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[k+i]], "To") <- na.omit(str_extract(readLines(spam_files[i]), "^(To: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[k+i]], "Date") <- na.omit(str_extract(readLines(spam_files[i]), "^(Date: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[k+i]], "Subject") <- na.omit(str_extract(readLines(spam_files[i]), "^(Subject: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+}
+
+main_corpus
+meta(main_corpus[[k+3]])
+```
+
+The corpus now has 3002 documents: 2501 from the first ham set, and 501 from the first spam set. This number checks out and it will be appropriate to remember this number since this is our new training document size. Remember: 3002 documents. 3002 documents. 3002 documents. **3002 documents**.
+
+
+####Second Ham Set
+
+Our training documents are established, now we need our first testing document set which is our second ham set. *k* is now set to the 3002 which is the number of documents in our first ham set and our first spam set. Which is the size of our testing document set. 3002. 3002 documents. 3002 documents. 3002 documents. **3002 documents**.
+
+```{r}
+k <- length(ham_files) + length(spam_files)
+
+for(i in 1:length(ham2_names)){
+  tmp <- readLines(ham2_files[i])
+  tmp <- str_c(tmp, collapse = " ")
+  
+  tmp_corpus <- Corpus(VectorSource(tmp))
+  main_corpus <- c(main_corpus, tmp_corpus)
+    
+  meta(main_corpus[[k+i]], "filename") <- ham2_names[i]
+  meta(main_corpus[[k+i]], "type") <- "Ham"
+  
+   meta(main_corpus[[k+i]], "From") <- na.omit(str_extract(readLines(ham2_files[i]), "^(From: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[k+i]], "To") <- na.omit(str_extract(readLines(ham2_files[i]), "^(To: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[k+i]], "Date") <- na.omit(str_extract(readLines(ham2_files[i]), "^(Date: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[k+i]], "Subject") <- na.omit(str_extract(readLines(ham2_files[i]), "^(Subject: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+}
+
+main_corpus
+meta(main_corpus[[k+3]])
+```
+
+We now have 4003 documents, of which 1001 is the first part of our testing set and 3002 documents are the training set. 3002 documents. 3002 docum... Ok, I'll stop for now.
+
+####Second Spam Set
+
+Last but not least the second spam set is added to the corpus:
+
+```{r}
+k <- length(ham_files) + length(spam_files) + length(ham2_files)
+
+for(i in 1:length(spam2_names)){
+  tmp <- readLines(spam2_files[i])
+  tmp <- str_c(tmp, collapse = " ")
+  
+  tmp_corpus <- Corpus(VectorSource(tmp))
+  main_corpus <- c(main_corpus, tmp_corpus)
+    
+  meta(main_corpus[[k+i]], "filename") <- spam2_names[i]
+  meta(main_corpus[[k+i]], "type") <- "Spam"
+  
+   meta(main_corpus[[k+i]], "From") <- na.omit(str_extract(readLines(spam2_files[i]), "^(From: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[k+i]], "To") <- na.omit(str_extract(readLines(spam2_files[i]), "^(To: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[k+i]], "Date") <- na.omit(str_extract(readLines(spam2_files[i]), "^(Date: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+    meta(main_corpus[[k+i]], "Subject") <- na.omit(str_extract(readLines(spam2_files[i]), "^(Subject: )[[:alnum:][:digit:]: ,.@+<>-]+"))
+}
+
+main_corpus
+meta(main_corpus[[k+3]])
+```
+
+Our final set makes the corpus 5801 documents large. Time to clean and analyze.
+
+
+##Data Corrections
+
+With our corpus in hand, we'll start to by **cleaning the corpus**, **creating the TermDocumentMatrix** (TDM), then **creating the DocumentTermMatrix** (DTM).
+
+###Cleaning the Corpus
+
+Since the texts contain a lot of challenging items such as punctuation, numbers, stop-words (who, that, etc.), and white space (unncessary blank lines and extra space) we'll need to remove those and perform some formating changes to use the word stems and change upper case words to lower case words:
+
+```{r}
+clean_files <- function(corpus){
+  corpus <- tm_map(corpus, removeNumbers)
+  corpus <- tm_map(corpus, removePunctuation)
+  corpus <- tm_map(corpus, removeWords, stopwords('english'))
+  corpus <- tm_map(corpus, stemDocument)
+  corpus <- tm_map(corpus, PlainTextDocument)
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, stripWhitespace)
+  corpus
+}
+
+clean_files(main_corpus)
+main_corpus
+```
+
+Super fantastic: data has been successfully collected and a corpus created, added in meta data, and cleaned the documents. We now need to properly connect the data using a **term document matrix** or **document term matrix** from the texts before we can move on to the testing phase and **remove sparse words**.
+
+###Creating the Term Document Matrix
+
+The Term Document Matrix (**TDM**) will analyse the data (the remaining word terms) and give a count for each time the term is used. The TDM will pass through each document, giving a frequency count for each term, and place each result in a single matrix. This matrix can then be used for analysis.
+
+```{r}
+tdm_emails <- TermDocumentMatrix(main_corpus)
+tdm_emails
+```
+
+###Creating the Documenet Term Matrix
+
+Basically just a transposition of the TDM, the Document Term Matrix (**DTM**) can also be created simply:
+
+```{r}
+dtm_emails <- DocumentTermMatrix(main_corpus)
+dtm_emails
+```
+
+
+###Remove Sparse Terms
+
+If we were to see the full TDM or DTM we would see that this are several sparsely used terms that had been only used once or twice. These terms can be a bottleneck in processing and analysis, so it shouldn't be too much of an issue to remove them:
+
+```{r}
+tdm_emails <- removeSparseTerms(tdm_emails, 0.998)
+tdm_emails
+dtm_emails <- removeSparseTerms(dtm_emails, 0.998)
+dtm_emails
+```
+
+##Data Correlations
+
+To recollect: [1] We gathered and cleaned all of our data into a corpus and then [2] added meta data. In the cleaning phase we [1] removed punctuation, stop words, symbols, and white space, [2] converted words to their easier to use stems, and [3] lowercased all terms. In the connecting phase we [1] created a TDM and DTM of the copora, and [2] removed sparse terms. We now move on to the analysis page and see what the data tells us but first we need to put the TDMs in a **container**, then **fit models** for each container, then **test models**.
+
+###Save the Meta!
+
+We need to save the meta data now, since things are likely to get lost. As we no longer need the file names or other characteristics, we only need to save the type (spam or ham).
+
+```{r}
+meta_type <- meta(main_corpus, tag = "type")
+ft_labels <- unlist(meta_type)
+head(ft_labels)
+```
+
+###Contain the Data
+
+With everything nearly ready we'll contain the data for testing purposes, using a *container* and specifying which documents are our testing documents and which documents are our training documents. Thank goodness we remembered the number of training documents. Did you forget? It's **3002 documents**.
+
+```{r}
+container <- create_container(
+  dtm_emails,
+  labels = ft_labels,
+  trainSize = 1:3002,
+  testSize = 3003:5801,
+  virgin = FALSE
+)
+
+slotNames(container)
+```
+
+###Train the Data
+
+We can simply train the model now using the preset functions for the three tools at hand: [1] **SVM**, [2] **Random Forest**, and [3] **Maximum Entropy**.
+
+```{r}
+svm_model <- train_model(container, "SVM")
+tree_model <- train_model(container, "TREE")
+maxent_model <- train_model(container, "MAXENT")
+```
+
+###Classify the Data
+
+The test data is now used to for each of the tools:
+
+```{r}
+svm_out <- classify_model(container, svm_model)
+tree_out <- classify_model(container, tree_model)
+maxent_out <- classify_model(container, maxent_model)
+```
+
+###Correct the Labels
+
+We now add the correct test labels back.
+
+```{r}
+labels_out <- data.frame(
+    correct_label = ft_labels[3003:5801],
+    svm = as.character(svm_out[,1]),
+    tree = as.character(tree_out[,1]),
+    maxent = as.character(maxent_out[,1]),
+    stringsAsFactors = F
+)
+```
+
+###Exam the Performance
+
+Finally, the bulk of our work comes to testing the performance of the data collection algorithms. We have three tools at hand: [1] **SVM**, [2] **Random Forest**, and [3] **Maximum Entropy**.
+
+####SVM Performance
+
+```{r}
+table(labels_out[,1] == labels_out[,2])
+prop.table(table(labels_out[,1] == labels_out[,2]))
+```
+
+We can see there's 102 mis-categorizations and 2697 real (correct) categorizations.
+
+####Random Forest Performance
+
+```{r}
+table(labels_out[,1] == labels_out[,3])
+prop.table(table(labels_out[,1] == labels_out[,3]))
+```
+
+The Random Forest performs worse, with 1164 mis-categorizations and 1635 correct ones.
+
+####Maximum Entropy Performance
+
+```{r}
+table(labels_out[,1] == labels_out[,4])
+prop.table(table(labels_out[,1] == labels_out[,4]))
+```
+
+The Maximum Entropy model does much better than the Random Forest, but worse than the SVM model. Here we have 111 mis-categorizations and 2688 correct ones.
+
+##Concluding the Data
+
+Our data set was very large. Had we suck to using one set of documents for training and testing (i.e. using first ham and the first spam sets and limiting to 1000 documents in the training set) we may have had a different outcome for better or worse. In the end, the SVM model performed the best with 96.4% correct categorizations. This counts for (conservatively) 4 spam emails for every 100 emails, signficantly better than what I see in my personal email. Gmail, get your mess together.
