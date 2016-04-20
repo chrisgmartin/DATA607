@@ -1,0 +1,161 @@
+---
+title: "DATA607 - Project 4 - Importing to MySQL and Neo4j"
+author: "Chris G. Martin"
+date: "April 16, 2016"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    theme: cerulean
+    highlight: kate
+---
+
+#Objective
+
+The objective of this project is simple: take information from a relational database and migrate it to a NoSQL database of your own choosing. I've chosen the flights database from R and Neo4j as our NoSQL database. The decision to create an RMarkdown file even though it is not necessary is to make the process reproducible and transparent.
+
+***
+
+#Using R
+
+##Load the Data
+
+Since the flight database is found via the *nycflights13* package, it should first be loaded into R along with the other packages we'll use in this project:
+
+```{r warning=FALSE}
+#install.packages('nycflights13')
+pacman::p_load(knitr)
+
+#this package could be loaded with pacman but I seperated it out for simplicity:
+library(nycflights13)
+```
+
+##Check the Data
+
+The package comes with a couple of datasets, of which we'll use: **flights**, **weather**, **airlines**, and **airports**. The only dataset we're leaving out is the **planes** dataset.
+
+```{r}
+kable(head(flights))
+kable(head(weather))
+kable(head(airlines))
+kable(head(airports))
+```
+
+##Export the data
+
+Since we want to load the datasets into a relational database first, we'll export them all in R to a new folder in the **C:/** called **data**.
+
+```{r, eval=FALSE}
+write.csv(flights, "c:/data/flights.csv", row.names=FALSE)
+write.csv(weather, "c:/data/weather.csv", row.names=FALSE)
+write.csv(airlines, "c:/data/airlines.csv", row.names=FALSE)
+write.csv(airports, "c:/data/airports.csv", row.names=FALSE)
+
+```
+
+***
+
+#Using MySQL
+
+Now that we've exported the data into a local file, we'll switch to MySQL to load the datasets into a regional database.
+
+##Importing the CSV files
+
+Simply enough, the .CSV files were imported using the MySQL Import CSV wizard. I first created a new scheme (titled *project4*), right clicked the scheme tables, and used the table data export line. Instructions can be found on the [MySQL website](https://dev.mysql.com/doc/workbench/en/wb-admin-export-import-table.html).
+
+Note: This process took an extremely long time (one whole day: 24 hours). It could be due to the size of the tables, the slow processor speed and slow HDD on my computer, the speed of MySQL's importing wizard, or any other reason, but going forward this will need to be taken into consideration and alternatives should be evaluated.
+
+##Manipulating the Data
+
+At this stage, it is possible (rather simple too) to manipulate the data as you'd see fit
+
+##Exporting the CSV files
+
+Very simply, the cSV files are then exported back into a CSV file.
+
+***
+
+#Using Neo4j
+
+After slicing and dicing the databases in MySQL and exporting it, we now move to importing the CSV files into 
+
+##Importing the SQL files
+
+Using the code below, the CSV files were exported from MySQL and imported into Neo4j. This processes was extremely quick in comparison to the MySQL import.
+
+```{r eval=FALSE}
+#airports data
+LOAD CSV WITH HEADERS FROM "file:///data//airports.csv" AS row
+CREATE (n:airports)
+SET n = row,
+  n.faa = toFloat(row.faa),
+  n.name = toFloat(row.name), n.lat = toInt(row.lat),
+  n.lon = toInt(row.lon),
+  n.alt = toInt(row.alt),
+  n.tz = toInt(row.tz),
+  n.dst = toFloat(row.dst)
+
+#airlines data
+LOAD CSV WITH HEADERS FROM "file:///data//airlines.csv" AS row
+CREATE (n:airlines)
+SET n = row,
+  n.carrier = toFloat(row.carrier),
+  n.name = toFloat(row.name)
+
+#weather data
+LOAD CSV WITH HEADERS FROM "file:///data//weather.csv" AS row
+CREATE (n:weather)
+SET n = row,
+  n.origin = toFloat(row.origin),
+  n.year = toInt(row.year),
+  n.month = toInt(row.month),
+  n.day = toInt(row.day),
+  n.hour = toInt(row.hour),
+  n.temp = toInt(row.temp),
+  n.dewp = toInt(row.dewp),
+  n.humid = toInt(row.humid), 
+  n.wind_speed = toInt(row.wind_speed),
+  n.wind_gust = toInt(row.wind_gust),
+  n.precip = toInt(row.precip),
+  n.pressure = toInt(row.pressure),
+  n.visib = toInt(row.visib)
+
+#flights data
+#since there is a lot of data, periodic commit must be used
+USING PERIODIC COMMIT 500
+LOAD CSV WITH HEADERS FROM "file:///data//flights.csv" AS row
+CREATE (n:flights)
+SET n = row,
+  n.year = toInt(row.year),
+  n.month = toInt(row.month),
+  n.day = toInt(row.day),
+  n.dep_time = toInt(row.dep_time),
+  n.dep_delay = toInt(row.dep_delay),
+  n.arr_time = toInt(row.arr_time),
+  n.arr_delay = toInt(row.arr_delay), 
+  n.carrier = toFloat(row.carrier),
+  n.tailnum = toFloat(row.tailnum),
+  n.flight = toInt(row.flight),
+  n.origin = toFloat(row.origin),
+  n.dest = toFloat(row.dest),
+  n.air_time = toInt(row.air_time),
+  n.distance = toInt(row.distance),
+  n.hour = toInt(row.hour),
+  n.minute = toInt(row.minute)
+```
+
+***
+
+#Conclusion:
+
+While this was a slow way of migrating data from MySQL to Neo4j. There is certainly a quicker way to do this directly from R or even connecting Neo4j to MySQL, but the long way will suffice for now.
+
+##Pros of using NoSQL
+
+The obvious pro of using a NoSQL Graph Database is the ability to connect disperate relationships. While SQL can join tables and make simple connections between them, finding a connection between tables far and away is much more difficult and requires a lot of syntax. A graph database makes this process incredibly simple and streamlined.
+
+
+##Cons of using NoSQL
+
+One of the advantages of SQL over NoSQL is that SQL handles incredibly large amounts of data very well. This is extremely valuable with "stagnant" data, data that does not change often and does not require real-time analysis. In business context, it stores a vast amount of history perfect for finding trends and doing deep analysis on historical data. Dark data is also incredibly valuable information that can be extracted from SQL databases, since the information is more or less hidden.
+
